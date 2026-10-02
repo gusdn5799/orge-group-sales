@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>올계 공구 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: sticky filter bar → KPI strip (10) → 판매 흐름 row → 품목 row → 주문 구성 row → 고객 + 품목 상세 */
+:root{
+  --bg:#f2f5f9; --panel:#ffffff; --line:#dbe2ec; --grid:#e7ecf3;
+  --fg:#141b26; --fg2:#465365; --muted:#768296;
+  --accent:#1b5fc4; --accent-soft:#e1ebfa;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7;
+  --y-old:#c3cad5; --y-mid:#98a3b3;
+  --good:#1d7a3e; --bad:#c6382f; --warn:#b06f00;
+  --good-bg:#e4f3e8; --bad-bg:#fbe6e4; --warn-bg:#fdf0d6;
+  --f-ui:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10141a; --panel:#181d25; --line:#2a323e; --grid:#222933;
+  --fg:#ecf0f6; --fg2:#b5bfcd; --muted:#8691a2;
+  --accent:#6ea8f7; --accent-soft:#1b2c47;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#2e9a3e; --s7:#9085e9;
+  --y-old:#3b4350; --y-mid:#606c7d;
+  --good:#5cc28b; --bad:#f07a70; --warn:#e3a43a;
+  --good-bg:#1d3326; --bad-bg:#3a1f1d; --warn-bg:#3a2e17; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10141a; --panel:#181d25; --line:#2a323e; --grid:#222933;
+  --fg:#ecf0f6; --fg2:#b5bfcd; --muted:#8691a2;
+  --accent:#6ea8f7; --accent-soft:#1b2c47;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#2e9a3e; --s7:#9085e9;
+  --y-old:#3b4350; --y-mid:#606c7d;
+  --good:#5cc28b; --bad:#f07a70; --warn:#e3a43a;
+  --good-bg:#1d3326; --bad-bg:#3a1f1d; --warn-bg:#3a2e17; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:14px;line-height:1.5}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:20px;padding-block:20px 48px;display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px}
+h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:12.5px}
+.filters{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.fg{min-width:0;max-width:100%;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fg>.t{font-size:11.5px;color:var(--muted);letter-spacing:.04em;font-weight:600}
+select,input[type=search],input[type=date]{font:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+.chip{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--bg);color:var(--fg2);border-radius:999px;padding:3px 10px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--fg);font-weight:600}
+.chip:focus-visible,select:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.tog{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--fg2);cursor:pointer}
+.tog input{accent-color:var(--accent)}
+.reset{font:inherit;font-size:12.5px;background:none;border:none;color:var(--accent);cursor:pointer;text-decoration:underline;padding:0}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:4px;align-content:start;min-width:0}
+.kpi .l{font-size:12px;color:var(--muted);font-weight:500}
+.kpi .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
+.kpi .v small{font-size:13px;font-weight:500;color:var(--fg2);margin-left:2px}
+.kpi .d{font-size:12px;color:var(--fg2);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.pill{font-size:11.5px;font-weight:600;border-radius:4px;padding:1px 6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.up{color:var(--good);background:var(--good-bg)} .dn{color:var(--bad);background:var(--bad-bg)} .wn{color:var(--warn);background:var(--warn-bg)} .nt{color:var(--fg2);background:var(--grid)}
+.row{display:grid;gap:16px;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}
+.row3{display:grid;gap:16px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0;display:grid;gap:8px;align-content:start}
+.card h2{font-size:14.5px;font-weight:600;margin:0}
+.card .note{font-size:12px;color:var(--muted)}
+.ch{position:relative;width:100%}
+.ch svg{display:block;width:100%;height:auto;overflow:visible}
+.ch text{fill:var(--muted);font-size:11px;font-family:var(--f-ui)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--fg2)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.12);border-radius:6px;padding:7px 9px;font-size:12px;color:var(--fg);white-space:nowrap;z-index:3;font-variant-numeric:tabular-nums}
+.tip b{font-weight:600}
+.tip .r{display:flex;gap:8px;justify-content:space-between;align-items:center}
+.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
+.tbl{overflow:auto;max-height:520px;border-top:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+th{position:sticky;top:0;background:var(--panel);text-align:right;font-weight:600;color:var(--muted);font-size:11.5px;padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 6px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+th.t,td.t{text-align:left;white-space:normal;min-width:170px}
+.row.tables{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}
+.row3 .tbl{max-height:330px}
+td.t span{display:block;font-size:11px;color:var(--muted)}
+tr.sub td{color:var(--fg2);font-size:12px;background:var(--bg)}
+tr.sub td.t{padding-left:14px}
+td.rk{color:var(--muted);text-align:left;width:22px}
+.seg{display:inline-flex;flex-wrap:wrap;max-width:100%;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{font:inherit;font-size:12px;background:var(--bg);color:var(--fg2);border:0;padding:3px 10px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--panel);font-weight:600}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.empty{color:var(--muted);font-size:12.5px;padding:12px 0}
+footer{font-size:12px;color:var(--muted);line-height:1.6}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(5,minmax(0,1fr))}.kpi .v{font-size:21px}.row3{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.row,.row.tables{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.filters{position:static}.wrap{padding-inline:16px}.kpi .v{font-size:20px}}
+@media (prefers-reduced-motion:no-preference){.ch rect,.ch path{transition:opacity .15s}}
+
+[hidden]{display:none!important}
+.view{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+.ttl{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.vseg{border-color:var(--accent)}
+.vseg button{font-size:14px;font-weight:600;padding:6px 16px}
+.kpis.k5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.emptybig{display:grid;place-items:center;text-align:center;min-height:260px;border:1px dashed var(--line);border-radius:8px;color:var(--fg2)}
+.emptybig b{display:block;font-size:22px;color:var(--fg);margin-bottom:4px}
+.gap{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;font-size:13px;color:var(--fg2);padding:10px 12px;border-radius:8px;background:var(--bg)}
+.lnk{font:inherit;background:none;border:0;padding:0;color:var(--fg);text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.lnk:hover{text-decoration-color:var(--accent)}
+tfoot td{font-weight:600;border-top:1px solid var(--line);border-bottom:0;position:sticky;bottom:0;background:var(--panel)}
+select:disabled{opacity:.55}
+.dnote{font-size:12px;color:var(--warn)}
+@media (max-width:1100px){.kpis.k5{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:760px){.kpis.k5{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.brk{flex-basis:100%;height:0}
+.chip:disabled{opacity:.4;cursor:default}
+.cb{position:relative;display:inline-flex;max-width:100%}
+.cb input{font:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 28px 5px 8px;width:260px;max-width:100%}
+.cb .cbx{position:absolute;right:2px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);cursor:pointer;padding:4px 7px;font-size:12px}
+.cb ul{position:absolute;top:calc(100% + 4px);left:0;z-index:20;margin:0;padding:4px;list-style:none;min-width:100%;width:max-content;max-width:min(420px,88vw);max-height:320px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.16)}
+.cb li{padding:6px 8px;border-radius:5px;font-size:13px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg)}
+.cb li[aria-selected="true"]{background:var(--accent-soft)}
+.cb li.cur{font-weight:600}
+.cb li b{color:var(--accent)}
+.cb li.gl{font-size:11px;color:var(--muted);cursor:default;padding:6px 8px 2px;font-weight:600}
+.cb li.none{color:var(--muted);cursor:default}
+
+/* --- 공구 대시보드 전용 --- */
+:root{--set:#d98a00;--set-soft:#fdf0d6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--set:#e3a43a;--set-soft:#3a2e17}}
+:root[data-theme="dark"]{--set:#e3a43a;--set-soft:#3a2e17}
+.seg button:disabled{opacity:.45;cursor:default}
+.chip.set[aria-pressed="true"]{background:var(--set-soft);border-color:var(--set)}
+.cols{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:4px;height:230px}
+.cols.sm{height:170px}
+.col{display:grid;grid-template-rows:minmax(0,1fr) auto;min-width:0}
+.bars{display:flex;align-items:flex-end;justify-content:center;gap:3px;border-bottom:1px solid var(--line);padding-top:20px;min-width:0}
+.bar{flex:1 1 0;max-width:38px;min-width:3px;min-height:1px;border-radius:3px 3px 0 0;position:relative;background:var(--accent)}
+.bar.c{background:var(--y-mid)}
+.bar.lo{background:var(--set)}
+.bar .bv{position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;color:var(--fg);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cols.dense .bv{font-size:10px;font-weight:500}
+.cl{font-size:11.5px;color:var(--fg2);text-align:center;padding-top:5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cl small{display:block;font-size:10.5px;color:var(--muted)}
+.hbs{display:grid;gap:12px}
+.card>*{min-width:0}
+.hb{display:grid;grid-template-columns:78px minmax(0,1fr) 62px 62px;gap:8px;align-items:center;font-size:12.5px}
+.hb .hn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg)}
+.hb .ht{position:relative;height:16px;background:var(--grid);border-radius:3px;display:flex;overflow:visible}
+.hb .ht i{display:block;height:100%;background:var(--accent)}
+.hb .ht i:first-child{border-radius:3px 0 0 3px}
+.hb .ht i.s{background:var(--set)}
+.hb .ht b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--fg);opacity:.55;border-radius:1px}
+.hb .hv{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.hb .hd2{text-align:right}
+.heat td.c{min-width:54px}
+.heat td.cut{background:var(--warn-bg);color:var(--warn);font-weight:600}
+.heat th small{display:block;font-weight:500;font-size:10.5px}
+.heat th.t,.heat td.t{min-width:84px}
+td.setrow,tr.setrow td{background:var(--set-soft)}
+.notes{display:grid;gap:4px;font-size:12px;color:var(--fg2)}
+.notes .w{color:var(--warn)}
+.say{font-size:13px;color:var(--fg);padding:10px 12px;border-radius:8px;background:var(--accent-soft)}
+.say b{font-variant-numeric:tabular-nums}
+.row.even{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+.row.wide{grid-template-columns:minmax(0,1fr) minmax(0,1.7fr)}
+.row.mid{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}
+#tip{position:fixed;left:0;top:0}
+@media (max-width:1100px){.row.wide,.row.mid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){.row.even{grid-template-columns:minmax(0,1fr)}.cols.dense .bv{display:none}.cols{height:200px}.hb{grid-template-columns:66px minmax(0,1fr) 52px 58px;gap:6px}}
+html{color-scheme:light} body{margin:0} img{max-width:100%}
+.gate{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:var(--bg);padding:16px;overflow:auto}
+.gate form{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:26px 24px;width:min(360px,100%);display:grid;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+.gate h1{font-size:19px}
+.gate label{display:grid;gap:5px;font-size:12.5px;color:var(--fg2);font-weight:500}
+.gate input{font:inherit;font-size:15px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 10px;width:100%}
+.gate input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.gate .go{font:inherit;font-size:15px;font-weight:600;border:0;border-radius:7px;padding:10px;background:var(--accent);color:var(--panel);cursor:pointer}
+.gate .go:disabled{opacity:.6;cursor:default}
+.gate .err{color:var(--bad);font-size:13px;min-height:19px}
+.gate .fine{font-size:12px;color:var(--muted);line-height:1.5}
+.who{display:flex;gap:10px;align-items:center;justify-content:flex-end;font-size:12.5px;color:var(--fg2)}
+.who b{color:var(--fg);font-weight:600}
+.kpis.k4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.btn{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:6px;padding:4px 12px;cursor:pointer}
+@media (max-width:760px){.kpis.k4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.btn.pri{background:var(--accent);color:var(--panel);border-color:var(--accent);font-weight:600;font-size:13.5px;padding:8px 16px;text-decoration:none;display:inline-block}
+.meta{display:flex;gap:8px 28px;flex-wrap:wrap;font-size:13px;color:var(--fg2)}
+.meta b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+.steps{margin:0;padding-left:18px;font-size:12.5px;color:var(--fg2);line-height:1.7}
+.gate a{color:var(--accent)}
+.gate .okmsg{color:var(--good);font-size:13px}
+.gate .alt{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:7px;padding:9px;cursor:pointer}
+.gate .err:empty,.gate .okmsg:empty{display:none}
+.btn.sm{padding:3px 10px;font-size:12px}
+.btn.ok{background:var(--accent);border-color:var(--accent);color:var(--panel);font-weight:600}
+.btn.danger{color:var(--bad)}
+td.act{white-space:nowrap;text-align:right}
+td.act .btn{margin-left:4px}
+td.pwc{font-family:var(--f-num);text-align:left}
+</style>
+</head><body>
+<div class="gate" id="gate">
+  <form id="gateForm" autocomplete="off">
+    <div><h1>올계 공구 대시보드</h1><div class="sub" id="gSub">이름과 비밀번호를 입력하세요.</div></div>
+    <label for="gName">이름<input type="text" id="gName" maxlength="30" autocomplete="off" required></label>
+    <label for="gPw">비밀번호<input type="password" id="gPw" maxlength="60" autocomplete="off" required></label>
+    <label for="gPw2" id="gPw2Wrap" hidden>비밀번호 확인<input type="password" id="gPw2" maxlength="60" autocomplete="off"></label>
+    <div class="okmsg" id="gOk" role="status"></div>
+    <div class="err" id="gErr" role="alert"></div>
+    <button type="submit" class="go" id="gGo">로그인</button>
+    <button type="button" class="alt" id="gSwitch">권한요청</button>
+    <div class="fine" id="gFine"></div>
+  </form>
+</div>
+<div class="wrap" id="app" hidden>
+<header class="top">
+  <div><div class="ttl"><h1>올계 공구 대시보드</h1><span class="seg vseg" id="vSeg" role="group" aria-label="화면 선택" hidden><button type="button" data-view="dash">대시보드</button><button type="button" data-view="log" id="vLogBtn">관리자</button></span></div><div class="sub" id="srcLbl"></div></div>
+  <div><div class="who"><span id="whoLbl"></span><button type="button" class="reset" id="logout">로그아웃</button></div><div class="sub" id="periodLbl" style="text-align:right"></div></div>
+</header>
+
+<div id="vDash" class="view">
+
+<section class="filters" aria-label="필터">
+  <div class="fg"><label class="t" for="fRound">회차</label><select id="fRound"></select></div>
+  <div class="fg"><label class="t" for="fCmp">비교</label><select id="fCmp"></select></div>
+  <div class="fg"><span class="t">보기</span>
+    <span class="seg" role="group" aria-label="수량 또는 금액"><button type="button" data-m="q">수량</button><button type="button" data-m="v">금액</button></span>
+  </div>
+  <div class="fg"><span class="t">금액 기준</span>
+    <span class="seg" role="group" aria-label="금액 기준"><button type="button" data-b="sup">올계 매출</button><button type="button" data-b="pay">결제액</button></span>
+  </div>
+  <div class="fg"><span class="t">고객</span>
+    <span class="seg" role="group" aria-label="고객 구분"><button type="button" data-c="all">전체</button><button type="button" data-c="new">신규</button><button type="button" data-c="rep">재구매</button></span>
+  </div>
+  <div class="brk"></div>
+  <div class="fg"><span class="t">품목</span><label class="tog"><input type="checkbox" id="fItAll">전체</label><span id="fIt" class="fg"></span></div>
+  <button type="button" class="reset" id="fReset">초기화</button>
+</section>
+
+<section class="kpis" id="kpis" aria-label="핵심 지표"></section>
+
+<div class="row even">
+  <section class="card">
+    <div class="hd"><h2 id="dayTtl">일차별 판매</h2>
+      <span class="seg" role="group" aria-label="일별 또는 누적"><button type="button" data-d="day">일별</button><button type="button" data-d="cum">누적 비중</button></span></div>
+    <div class="legend" id="dayLg"></div>
+    <div id="dayCh"></div>
+  </section>
+  <section class="card">
+    <h2 id="hrTtl">1일차 시간대별 판매</h2>
+    <div class="legend" id="hrLg"></div>
+    <div id="hrCh"></div>
+    <div class="note" id="hrNote"></div>
+  </section>
+</div>
+
+<div class="row mid">
+  <section class="card">
+    <h2 id="itTtl">품목별 판매</h2>
+    <div class="legend" id="itLg"></div>
+    <div class="hbs" id="itCh"></div>
+  </section>
+  <section class="card">
+    <h2>품목 × 일차 판매 수량 <span class="note">(팩, ALL세트분 포함)</span></h2>
+    <div class="tbl heat"><table id="heat"></table></div>
+    <div class="notes" id="heatNotes"></div>
+  </section>
+</div>
+
+<div class="row3">
+  <section class="card"><h2>주문당 팩 수</h2><div class="legend" id="lgA"></div><div id="hA"></div></section>
+  <section class="card"><h2>주문당 결제액</h2><div class="legend" id="lgB"></div><div id="hB"></div></section>
+  <section class="card"><h2>주문당 품목 수</h2><div class="legend" id="lgC"></div><div id="hC"></div></section>
+</div>
+
+<div class="row wide">
+  <section class="card">
+    <h2>신규 · 재구매 고객</h2>
+    <div id="custBox"></div>
+  </section>
+  <section class="card">
+    <h2>품목 상세</h2>
+    <div class="tbl"><table id="itTbl"></table></div>
+  </section>
+</div>
+
+</div>
+<div id="vLog" class="view" hidden>
+  <section class="card">
+    <div class="hd"><h2>권한 요청 <span class="pill wn" id="aCnt" hidden></span></h2>
+      <span class="fg"><label class="tog"><input type="checkbox" id="aShow">비밀번호 보기</label><button type="button" class="btn" id="aReload">새로고침</button></span></div>
+    <div class="note">수락하면 그 이름과 비밀번호로 로그인할 수 있습니다. 거절하면 요청이 지워집니다.</div>
+    <div class="tbl" style="max-height:260px"><table id="aPend"></table></div>
+    <h2 style="margin-top:8px">계정 목록</h2>
+    <div class="note">차단하면 로그인 중이어도 다음 새로고침 때 접속이 끊깁니다. 같은 내용이 구글 시트 "계정" 탭에 저장됩니다.</div>
+    <div class="tbl" style="max-height:360px"><table id="aList"></table></div>
+  </section>
+  <section class="card">
+    <div class="hd"><h2>데이터 관리</h2>
+      <span class="fg"><a class="btn pri" id="lSheet" href="#" target="_blank" rel="noopener">회차 추가 (구글 시트 열기)</a><button type="button" class="btn" id="lFresh">반영된 데이터 다시 불러오기</button></span></div>
+    <div class="meta" id="lMeta"></div>
+    <ol class="steps">
+      <li>스마트스토어에서 주문조회 엑셀을 받습니다. (단품 상품, ALL세트 상품 각각)</li>
+      <li>구글 시트의 "주문_단품" 탭에서 파일 → 가져오기 → 업로드 → "현재 시트에 추가"로 단품 엑셀을 넣습니다. "주문_ALL세트" 탭에도 같은 방법으로 넣습니다.</li>
+      <li>"회차" 탭 맨 아래에 회차명, 시작일, 종료일을 한 줄 적습니다.</li>
+      <li>시트 메뉴 대시보드 → 반영하기를 누릅니다. 구매자 이름·ID·수취인은 이때 고객키로 바뀌고 지워집니다.</li>
+      <li>이 화면에서 "반영된 데이터 다시 불러오기"를 누릅니다.</li>
+    </ol>
+  </section>
+  <section class="kpis k4" id="lKpis" aria-label="접속 요약"></section>
+  <section class="card">
+    <div class="hd"><h2>접속 기록</h2><button type="button" class="btn" id="lReload">새로고침</button></div>
+    <div class="note" id="lNote">최근 기록부터 최대 1,000건. 같은 내용이 구글 시트 "접속기록" 탭에도 쌓입니다.</div>
+    <div class="tbl" style="max-height:620px"><table id="lTable"></table></div>
+  </section>
+</div>
+<footer id="foot"></footer>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+function startApp(D,AUTH){
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const NI=D.items.length, SET=NI, NS=D.setItems.length;
+const SETN=D.setName||'ALL세트', FS=(D.freeShip/1e4)+'만원';
+const NAMES=[...D.items,SETN];
+const WD=['일','월','화','수','목','금','토'];
+
+/* ---------- 전처리 ---------- */
+const R=D.rounds.map(r=>{
+  const orders=r.orders.map(o=>({c:o[0],d:o[1],h:o[2],L:[],pay:0,sup:0,packs:0,kinds:0}));
+  r.lines.forEach(([o,i,q])=>{const O=orders[o];O.L.push([i,q]);O.kinds++;
+    if(i===SET){O.pay+=q*r.setPay;O.sup+=q*r.setSup;O.packs+=q*NS}
+    else{O.pay+=q*r.pay[i];O.sup+=q*r.sup[i];O.packs+=q}});
+  return Object.assign({},r,{orders,custs:new Set(orders.map(o=>o.c))});
+});
+R.forEach((r,ri)=>{const prev=new Set();for(let k=0;k<ri;k++)R[k].custs.forEach(c=>prev.add(c));
+  r.orders.forEach(o=>{o.rep=prev.has(o.c)});
+  // 회차 중 주문이 끊긴 품목 (필터와 무관한 사실)
+  const m=D.items.map(()=>Array(r.days).fill(0));
+  r.orders.forEach(o=>o.L.forEach(([i,q])=>{if(i!==SET)m[i][o.d-1]+=q}));
+  r.cut=m.map(a=>{let k=r.days;while(k>0&&a[k-1]===0)k--;return k<r.days&&k>0?k:0}); // 마지막 판매 일차 (끊긴 경우만)
+});
+
+/* ---------- 상태 ---------- */
+const S={r:R.length-1,c:R.length-2,m:'q',b:'sup',ct:'all',d:'day',items:new Set(NAMES.map((_,i)=>i))};
+
+/* ---------- 집계 ---------- */
+function agg(ri,ct){
+  const r=R[ri],sel=S.items,z=n=>Array(n).fill(0);
+  const a={r,single:z(NI),setU:z(NI),sets:0,pay:0,sup:0,packs:0,itPay:z(NI),itSup:z(NI),
+    dayQ:z(r.days),dayPay:z(r.days),daySup:z(r.days),hrQ:z(24),hrPay:z(24),hrSup:z(24),
+    itemDay:D.items.map(()=>z(r.days)),itemOrd:z(NI+1),orders:0,custs:new Set(),repC:new Set(),oPay:[],oPacks:[],oKinds:[]};
+  for(const o of r.orders){
+    if(ct==='new'&&o.rep)continue; if(ct==='rep'&&!o.rep)continue;
+    let hit=false;const seen=new Set();const di=o.d-1;
+    for(const [i,q] of o.L){
+      if(!sel.has(i))continue; hit=true;
+      if(i===SET){
+        a.sets+=q;const p=q*r.setPay,s=q*r.setSup;a.pay+=p;a.sup+=s;a.dayPay[di]+=p;a.daySup[di]+=s;seen.add(SET);
+        if(o.d===1){a.hrPay[o.h]+=p;a.hrSup[o.h]+=s}
+        for(const j of D.setItems){if(!sel.has(j))continue;a.setU[j]+=q;a.packs+=q;a.dayQ[di]+=q;a.itemDay[j][di]+=q;seen.add(j);if(o.d===1)a.hrQ[o.h]+=q}
+      }else{
+        const p=q*r.pay[i],s=q*r.sup[i];a.single[i]+=q;a.itPay[i]+=p;a.itSup[i]+=s;a.pay+=p;a.sup+=s;a.packs+=q;
+        a.dayQ[di]+=q;a.dayPay[di]+=p;a.daySup[di]+=s;a.itemDay[i][di]+=q;seen.add(i);
+        if(o.d===1){a.hrQ[o.h]+=q;a.hrPay[o.h]+=p;a.hrSup[o.h]+=s}
+      }
+    }
+    if(hit){a.orders++;a.custs.add(o.c);if(o.rep)a.repC.add(o.c);a.oPay.push(o.pay);a.oPacks.push(o.packs);a.oKinds.push(o.kinds);seen.forEach(i=>a.itemOrd[i]++)}
+  }
+  const n=a.orders;
+  a.aov=n?a.oPay.reduce((x,y)=>x+y,0)/n:NaN;
+  a.avgPacks=n?a.oPacks.reduce((x,y)=>x+y,0)/n:NaN;
+  a.free=n?a.oPay.filter(v=>v>=D.freeShip).length/n:NaN;
+  a.repShare=a.custs.size?a.repC.size/a.custs.size:NaN;
+  a.d1=a.packs?a.dayQ[0]/a.packs:NaN;
+  return a;
+}
+
+/* ---------- 표기 ---------- */
+const nf=v=>Math.round(v).toLocaleString('ko-KR');
+function won(v){if(!isFinite(v))return '–';if(Math.abs(v)>=1e8)return (v/1e8).toFixed(2)+'억';if(Math.abs(v)>=1e4)return nf(v/1e4)+'만';return nf(v)}
+const pc=(v,d=1)=>isFinite(v)?(v*100).toFixed(d)+'%':'–';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function pill(x,t){const c=Math.abs(x)<0.05?'nt':x>0?'up':'dn';return `<span class="pill ${c}">${t}</span>`}
+function dPct(a,b){if(b==null||!isFinite(a)||!isFinite(b)||b===0)return '';const x=(a-b)/b*100;return pill(x,(x>0?'+':'')+x.toFixed(1)+'%')}
+function dPp(a,b){if(b==null||!isFinite(a)||!isFinite(b))return '';const x=(a-b)*100;return pill(x,(x>0?'+':'')+x.toFixed(1)+'%p')}
+const tipAttr=h=>` data-tip="${esc(h)}"`;
+function dayLabel(r,i){const d=new Date(r.start+'T00:00:00');d.setDate(d.getDate()+i);return `${d.getMonth()+1}/${d.getDate()}(${WD[d.getDay()]})`}
+const mLbl=()=>S.m==='q'?'팩':(S.b==='sup'?'올계 매출':'결제액');
+const fmtM=v=>S.m==='q'?nf(v):won(v);
+const pick=(a,k)=>S.m==='q'?a[k+'Q']:(S.b==='sup'?a[k+'Sup']:a[k+'Pay']);
+
+/* ---------- 세로 막대 ---------- */
+function cols(el,cats,series,opt){
+  opt=opt||{};const max=Math.max(1e-9,...series.flatMap(s=>s.vals));
+  el.innerHTML=`<div class="cols${opt.cls?' '+opt.cls:''}" style="--n:${cats.length}">`+cats.map((c,i)=>{
+    const bars=series.map((s,si)=>{const v=s.vals[i]||0,h=v/max*100;
+      const cls=s.cmp?'c':(opt.lo&&opt.lo(i)?'lo':'');
+      const lab=(!s.cmp&&!opt.nolab&&(v>0||opt.zero))?`<span class="bv">${opt.fmt(v)}</span>`:'';
+      const tip=`<b>${esc(c.tip||c.l)}</b>`+series.map(t=>`<div class="r"><span>${esc(t.name)}</span><b>${opt.fmt(t.vals[i]||0)}</b></div>`).join('');
+      return `<div class="bar ${cls}" style="height:${h.toFixed(2)}%"${tipAttr(tip)}>${lab}</div>`}).join('');
+    return `<div class="col"><div class="bars">${bars}</div><div class="cl">${esc(c.l)}${c.s?`<small>${esc(c.s)}</small>`:''}</div></div>`}).join('')+'</div>';
+}
+const lg=(el,arr)=>{el.innerHTML=arr.map(([c,t])=>`<span><i style="background:var(${c})"></i>${esc(t)}</span>`).join('')};
+
+/* ---------- 렌더 ---------- */
+function render(){
+  if(S.r===0)S.ct='all';
+  const r=R[S.r],noHist=S.ct!=='all'&&S.c===0,hasC=S.c>=0&&S.c!==S.r&&!noHist,rc=hasC?R[S.c]:null;
+  const a=agg(S.r,S.ct),b=hasC?agg(S.c,S.ct):null;
+  const cl=hasC?rc.label:'';
+
+  // 머리말
+  $('#srcLbl').textContent=`단품 체제 전환 후 회차 집계 · 취소·반품 제외 · 반영 ${D.builtAt} · [개발자 : 정현우]`;
+  $('#periodLbl').textContent=`${r.label} · ${dayLabel(r,0)} ~ ${dayLabel(r,r.days-1)} · ${r.days}일`+(hasC?` · 비교 ${cl}`:noHist?` · 첫 회차는 이전 이력이 없어 고객 필터 비교 생략`:'');
+
+  // 필터 상태
+  $('#fRound').value=S.r;$('#fCmp').value=hasC?S.c:-1;
+  $$('[data-m]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.m===S.m));
+  $$('[data-b]').forEach(x=>{x.setAttribute('aria-pressed',x.dataset.b===S.b)});
+  $$('[data-c]').forEach(x=>{x.setAttribute('aria-pressed',x.dataset.c===S.ct);x.disabled=(x.dataset.c!=='all'&&S.r===0)});
+  $$('[data-d]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.d===S.d));
+  $$('#fIt .chip').forEach(x=>x.setAttribute('aria-pressed',S.items.has(+x.dataset.i)));
+  $('#fItAll').checked=S.items.size===NAMES.length;$('#fItAll').indeterminate=S.items.size>0&&S.items.size<NAMES.length;
+
+  // KPI
+  const cv=(t)=>hasC?`<span>${cl} ${t}</span>`:'';
+  const K=[
+    ['올계 매출',won(a.sup),'원',dPct(a.sup,b&&b.sup),b&&won(b.sup)],
+    ['결제액',won(a.pay),'원',dPct(a.pay,b&&b.pay),b&&won(b.pay)],
+    ['판매 팩 수',nf(a.packs),'팩',dPct(a.packs,b&&b.packs),b&&nf(b.packs)],
+    [SETN+' 판매',S.items.has(SET)?nf(a.sets):'–',S.items.has(SET)?'세트':'',dPct(a.sets,b&&b.sets),b&&S.items.has(SET)&&nf(b.sets)],
+    ['주문 수',nf(a.orders),'건',dPct(a.orders,b&&b.orders),b&&nf(b.orders)],
+    ['객단가',isFinite(a.aov)?nf(a.aov):'–',isFinite(a.aov)?'원':'',dPct(a.aov,b&&b.aov),b&&isFinite(b.aov)&&nf(b.aov)],
+    [FS+' 이상 주문 비중',pc(a.free),'',dPp(a.free,b&&b.free),b&&pc(b.free)],
+    ['고객 수',nf(a.custs.size),'명',dPct(a.custs.size,b&&b.custs.size),b&&nf(b.custs.size)],
+    ['재구매 고객 비중',S.r===0?'–':pc(a.repShare),'',S.r===0||(hasC&&S.c===0)?'':dPp(a.repShare,b&&b.repShare),S.r===0?'':(b&&S.c!==0&&pc(b.repShare))],
+    ['1일차 판매 비중',pc(a.d1),'',dPp(a.d1,b&&b.d1),b&&pc(b.d1)]];
+  $('#kpis').innerHTML=K.map(([l,v,u,d,c],i)=>{
+    let sub=(d||'')+(c?cv(c):'');
+    if(i===8&&S.r===0)sub='<span>첫 집계 회차라 이전 이력 없음</span>';
+    if(i===3&&!S.items.has(SET))sub='<span>품목 필터에서 제외됨</span>';
+    return `<div class="kpi"><div class="l">${l}</div><div class="v">${v}${u?`<small>${u}</small>`:''}</div><div class="d">${sub||'&nbsp;'}</div></div>`}).join('');
+
+  // 일차별
+  const cum=S.d==='cum';
+  const dv=x=>{const v=pick(x,'day');if(!cum)return v;const t=v.reduce((p,q)=>p+q,0)||1;let s=0;return v.map(q=>(s+=q)/t)};
+  const nd=Math.max(r.days,hasC?rc.days:0);
+  const cats=[...Array(nd)].map((_,i)=>({l:`${i+1}일차`,s:i<r.days?dayLabel(r,i):'',tip:`${i+1}일차`}));
+  const ser=[];if(hasC)ser.push({name:cl,vals:dv(b),cmp:1});ser.push({name:r.label,vals:dv(a)});
+  cols($('#dayCh'),cats,ser,{fmt:cum?v=>pc(v):fmtM});
+  $('#dayTtl').textContent=`일차별 판매 (${cum?mLbl()+' 누적 비중':mLbl()})`;
+  lg($('#dayLg'),hasC?[['--accent',r.label],['--y-mid',cl]]:[['--accent',r.label]]);
+
+  // 1일차 시간대
+  const hv=x=>pick(x,'hr');let h0=24,h1=0;[a,b].forEach(x=>{if(!x)return;hv(x).forEach((v,h)=>{if(v>0){h0=Math.min(h0,h);h1=Math.max(h1,h)}})});
+  if(h0>h1){h0=10;h1=23}
+  const hc=[];for(let h=h0;h<=h1;h++)hc.push({l:String(h),tip:`1일차 ${h}시대`});
+  const hs=[];if(hasC)hs.push({name:cl,vals:hv(b).slice(h0,h1+1),cmp:1});hs.push({name:r.label,vals:hv(a).slice(h0,h1+1)});
+  cols($('#hrCh'),hc,hs,{fmt:fmtM,cls:'dense',nolab:S.m!=='q'});
+  $('#hrTtl').textContent=`1일차 시간대별 판매 (${mLbl()})`;
+  lg($('#hrLg'),hasC?[['--accent',r.label],['--y-mid',cl]]:[['--accent',r.label]]);
+  const tot1=hv(a).reduce((p,q)=>p+q,0),first=hv(a)[h0]||0;
+  $('#hrNote').textContent=tot1?`가로축은 시각(시). 오픈 첫 1시간(${h0}시대)에 1일차 판매의 ${pc(first/tot1,0)}가 나갔어요.`+(S.m!=='q'?' 막대에 올리면 금액이 보여요.':''):'';
+
+  // 품목별
+  const qMode=S.m==='q',itv=x=>qMode?x.single.map((v,i)=>v+x.setU[i]):(S.b==='sup'?x.itSup:x.itPay);
+  const va=itv(a),vb=b?itv(b):null;
+  let rows=D.items.map((n,i)=>({n,i,v:va[i],s:qMode?a.setU[i]:0,c:vb?vb[i]:null})).filter(x=>S.items.has(x.i));
+  rows.sort((x,y)=>y.v-x.v);
+  if(!qMode&&S.items.has(SET)){const sv=x=>x.sets*(S.b==='sup'?x.r.setSup:x.r.setPay);rows.push({n:SETN,i:SET,v:sv(a),s:sv(a),c:b?sv(b):null,isSet:1})}
+  const mx=Math.max(1e-9,...rows.map(x=>Math.max(x.v,x.c||0)));
+  $('#itCh').innerHTML=rows.length?rows.map(x=>{
+    const w1=(x.v-x.s)/mx*100,w2=x.s/mx*100;
+    const tip=`<b>${esc(x.n)}</b>`+(qMode?`<div class="r"><span>단품</span><b>${nf(x.v-x.s)}</b></div><div class="r"><span>ALL세트분</span><b>${nf(x.s)}</b></div><div class="r"><span>합계</span><b>${nf(x.v)}</b></div>`:`<div class="r"><span>${r.label}</span><b>${won(x.v)}</b></div>`)+(x.c!=null?`<div class="r"><span>${cl}</span><b>${fmtM(x.c)}</b></div>`:'');
+    return `<div class="hb"${tipAttr(tip)}><div class="hn">${esc(x.n)}</div><div class="ht">${w1>0?`<i style="width:${w1.toFixed(2)}%"></i>`:''}${w2>0?`<i class="s" style="width:${w2.toFixed(2)}%"></i>`:''}${x.c!=null?`<b style="left:calc(${(x.c/mx*100).toFixed(2)}% - 1px)"></b>`:''}</div><div class="hv">${fmtM(x.v)}</div><div class="hd2">${dPct(x.v,x.c)}</div></div>`}).join(''):'<div class="empty">선택한 품목이 없어요.</div>';
+  $('#itTtl').textContent=`품목별 판매 (${mLbl()})`;
+  const L=[['--accent',qMode?'단품':'단품 '+mLbl()],['--set',qMode?'ALL세트분':'ALL세트 (별도 행)']];
+  $('#itLg').innerHTML=L.map(([c,t])=>`<span><i style="background:var(${c})"></i>${esc(t)}</span>`).join('')+(hasC?`<span><i style="background:var(--fg);opacity:.55;width:2px"></i>${esc(cl)} 실적</span>`:'');
+
+  // 품목 × 일차
+  const hrows=D.items.map((n,i)=>({n,i,d:a.itemDay[i],t:a.itemDay[i].reduce((p,q)=>p+q,0)})).filter(x=>S.items.has(x.i)).sort((x,y)=>y.t-x.t);
+  $('#heat').innerHTML=`<thead><tr><th class="t">품목</th>${[...Array(r.days)].map((_,i)=>`<th>${i+1}일차<small>${dayLabel(r,i)}</small></th>`).join('')}<th>합계</th><th>마지막 주문</th></tr></thead><tbody>`+
+    hrows.map(x=>{const cut=r.cut[x.i],m=Math.max(1,...x.d);
+      return `<tr><td class="t">${esc(x.n)}</td>`+x.d.map((v,di)=>{
+        if(cut&&di>=cut)return `<td class="c cut">${nf(v)}</td>`;
+        return `<td class="c" style="background:color-mix(in srgb,var(--accent) ${(v/m*38).toFixed(0)}%,transparent)">${nf(v)}</td>`}).join('')+
+        `<td><b>${nf(x.t)}</b></td><td>${cut?`<span class="pill wn">${esc(r.last[x.i]||'')}</span>`:esc(r.last[x.i]||'–')}</td></tr>`}).join('')+
+    `</tbody><tfoot><tr><td class="t">합계</td>${a.dayQ.map(v=>`<td>${nf(v)}</td>`).join('')}<td>${nf(a.packs)}</td><td></td></tr></tfoot>`;
+  const notes=[];
+  D.items.forEach((n,i)=>{if(r.cut[i]&&S.items.has(i))notes.push(`<div class="w">${esc(n)}: ${esc(r.last[i])} 이후 단품 주문 없음${S.items.has(SET)&&D.setItems.includes(i)?' (이후 수량은 ALL세트분)':''}</div>`)});
+  r.notes.forEach(x=>{if(S.items.has(D.items.indexOf(x.item)))notes.push(`<div>${esc(x.item)}: ${esc(x.from)}부터 "${esc(x.opt)}" 옵션으로 ${nf(x.qty)}팩 판매</div>`)});
+  if(S.ct!=='all')notes.push('<div>주문이 끊긴 시점은 고객 필터와 무관하게 회차 전체 기준이에요.</div>');
+  $('#heatNotes').innerHTML=notes.join('');
+
+  // 주문 구성
+  const hist=(arr,bins)=>{const n=arr.length||1;return bins.map(([lo,hi])=>arr.filter(v=>v>=lo&&v<hi).length/n)};
+  const BA=[[0,3,'1~2'],[3,5,'3~4'],[5,7,'5~6'],[7,10,'7~9'],[10,15,'10~14'],[15,1e9,'15+']];
+  const BB=[[0,5e4,'~5만'],[5e4,6e4,'5만대'],[6e4,7e4,'6만대'],[7e4,8e4,'7만대'],[8e4,1e5,'8~9만'],[1e5,1.5e5,'10만대'],[1.5e5,1e12,'15만~']];
+  const BC=[[1,2,'1종'],[2,3,'2종'],[3,4,'3종'],[4,5,'4종'],[5,6,'5종'],[6,99,'6종+']];
+  const H=(el,lgEl,key,B,unit,lo)=>{const s=[];if(hasC)s.push({name:cl,vals:hist(b[key],B),cmp:1});s.push({name:r.label,vals:hist(a[key],B)});
+    cols(el,B.map(x=>({l:x[2],tip:x[2]+unit})),s,{fmt:v=>pc(v,0),cls:'sm dense',lo});
+    const L=[['--accent',lo?`${r.label} ${FS} 이상`:r.label]];if(lo)L.push(['--set',`${r.label} ${FS} 미만`]);if(hasC)L.push(['--y-mid',cl]);lg(lgEl,L)};
+  H($('#hA'),$('#lgA'),'oPacks',BA,'팩');H($('#hB'),$('#lgB'),'oPay',BB,'',i=>BB[i][1]<=D.freeShip);H($('#hC'),$('#lgC'),'oKinds',BC,'');
+
+  // 고객
+  const gN=agg(S.r,'new'),gR=agg(S.r,'rep');
+  let ch='';
+  if(S.r===0){ch=`<div class="empty">첫 집계 회차(${esc(r.label)})라 이전 구매 이력이 없어요. 다음 회차부터 신규·재구매가 나뉘어요.</div>`}
+  else{
+    const pv=R[S.r-1];let back=0;pv.custs.forEach(c=>{if(r.custs.has(c))back++});
+    const row=(t,g)=>`<tr><td class="t">${t}</td><td>${nf(g.custs.size)}</td><td>${nf(g.orders)}</td><td>${isFinite(g.avgPacks)?g.avgPacks.toFixed(1):'–'}</td><td>${isFinite(g.aov)?nf(g.aov):'–'}</td><td>${won(S.b==='sup'?g.sup:g.pay)}</td></tr>`;
+    ch=`<div class="say">${esc(pv.label)} 고객 <b>${nf(pv.custs.size)}명</b> 중 <b>${nf(back)}명</b>이 ${esc(r.label)} 회차에 다시 구매했어요. 복귀율 <b>${pc(back/pv.custs.size)}</b></div>
+    <div class="tbl" style="margin-top:8px"><table><thead><tr><th class="t" style="min-width:64px">구분</th><th>고객</th><th>주문</th><th>주문당 팩</th><th>객단가</th><th>${S.b==='sup'?'올계 매출':'결제액'}</th></tr></thead><tbody>${row('신규',gN)}${row('재구매',gR)}</tbody></table></div>
+    <div class="note" style="margin-top:8px">재구매는 이전 집계 회차에 구매 이력이 있는 고객이에요. 품목 필터가 걸리면 해당 품목을 산 고객만 셉니다.</div>`}
+  $('#custBox').innerHTML=ch;
+
+  // 품목 상세
+  const aK=S.b==='sup'?'itSup':'itPay',aL=S.b==='sup'?'올계 매출':'결제액',tot=a.packs||1;
+  const trs=D.items.map((n,i)=>({n,i,t:a.single[i]+a.setU[i]})).filter(x=>S.items.has(x.i)).sort((x,y)=>y.t-x.t).map(x=>{const i=x.i;
+    const pb=b?b.single[i]+b.setU[i]:null;
+    return `<tr><td class="t" style="min-width:84px">${esc(x.n)}</td><td>${nf(a.single[i])}</td><td>${a.setU[i]?nf(a.setU[i]):'–'}</td><td><b>${nf(x.t)}</b></td><td>${pc(x.t/tot)}</td><td>${a.orders?pc(a.itemOrd[i]/a.orders):'–'}</td>${hasC?`<td>${dPct(x.t,pb)||'–'}</td>`:''}<td>${won(a[aK][i])}</td></tr>`}).join('');
+  const setAmt=a.sets*(S.b==='sup'?r.setSup:r.setPay);
+  const setTr=S.items.has(SET)?`<tr class="setrow"><td class="t">${esc(SETN)}<span>${NS}종 각 1팩 · 금액은 세트가</span></td><td>${nf(a.sets)}세트</td><td>–</td><td>–</td><td>–</td><td>${a.orders?pc(a.itemOrd[SET]/a.orders):'–'}</td>${hasC?`<td>${dPct(a.sets,b.sets)||'–'}</td>`:''}<td>${won(setAmt)}</td></tr>`:'';
+  $('#itTbl').innerHTML=`<thead><tr><th class="t">품목</th><th>단품</th><th>ALL세트분</th><th>합계(팩)</th><th>비중</th><th>주문 포함률</th>${hasC?`<th>${esc(cl)} 대비</th>`:''}<th>${aL}</th></tr></thead><tbody>${trs}${setTr}</tbody>`+
+    `<tfoot><tr><td class="t">합계</td><td>${nf(a.single.reduce((p,q)=>p+q,0))}</td><td>${nf(a.setU.reduce((p,q)=>p+q,0))}</td><td>${nf(a.packs)}</td><td></td><td></td>${hasC?`<td>${dPct(a.packs,b.packs)}</td>`:''}<td>${won(S.b==='sup'?a.sup:a.pay)}</td></tr></tfoot>`;
+
+  $('#foot').innerHTML=`집계 기준 · 단품 체제로 전환한 ${esc(R[0].label)} 회차부터 집계해요. · 취소·반품(부분 반품 포함)은 모든 수치에서 빼고, 교환은 판매로 셉니다. · 금액은 수량 × 가격표로 계산해 쿠폰·배송비는 반영되지 않아요. · ${esc(SETN)}는 수량을 구성 ${NS}종에 1팩씩 더하고, 금액은 세트가로 따로 잡아요. · 주문당 팩 수·결제액·품목 수와 객단가는 품목 필터와 무관하게 주문 전체 기준이에요. · 고객은 이름·ID를 가린 고객키로만 구분해요.`;
+}
+
+/* ---------- 초기화 · 이벤트 ---------- */
+$('#fRound').innerHTML=R.map((r,i)=>`<option value="${i}">${esc(r.label)}</option>`).join('');
+function fillCmp(){$('#fCmp').innerHTML='<option value="-1">없음</option>'+R.map((r,i)=>i===S.r?'':`<option value="${i}">${esc(r.label)}</option>`).join('')}
+$('#fIt').innerHTML=NAMES.map((n,i)=>`<button type="button" class="chip${i===SET?' set':''}" data-i="${i}">${esc(n)}</button>`).join('');
+fillCmp();
+$('#fRound').addEventListener('change',e=>{S.r=+e.target.value;S.c=S.r-1;fillCmp();render()});
+$('#fCmp').addEventListener('change',e=>{S.c=+e.target.value;render()});
+document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||t.disabled)return;const d=t.dataset;
+  if(d.view){if(typeof setView==='function')setView(d.view);return}
+  if(d.m){S.m=d.m}else if(d.b){S.b=d.b}else if(d.c){S.ct=d.c}else if(d.d){S.d=d.d}
+  else if(d.i!=null&&t.classList.contains('chip')){const i=+d.i;S.items.has(i)?S.items.delete(i):S.items.add(i)}
+  else if(t.id==='fReset'){S.r=R.length-1;S.c=R.length-2;S.m='q';S.b='sup';S.ct='all';S.d='day';S.items=new Set(NAMES.map((_,i)=>i));fillCmp()}
+  else return;
+  render()});
+$('#fItAll').addEventListener('change',e=>{S.items=e.target.checked?new Set(NAMES.map((_,i)=>i)):new Set();render()});
+
+const tip=$('#tip');
+function showTip(e){const t=e.target.closest&&e.target.closest('[data-tip]');if(!t){tip.hidden=true;return}
+  tip.innerHTML=t.dataset.tip;tip.hidden=false;const w=tip.offsetWidth,h=tip.offsetHeight;
+  let x=e.clientX+14,y=e.clientY+14;if(x+w>innerWidth-8)x=Math.max(8,e.clientX-w-14);if(y+h>innerHeight-8)y=Math.max(8,e.clientY-h-14);
+  tip.style.transform=`translate(${x}px,${y}px)`}
+document.addEventListener('pointermove',showTip);document.addEventListener('pointerdown',showTip);
+document.addEventListener('scroll',()=>{tip.hidden=true},true);
+// ================= 관리자 화면 =================
+function logInit(){ if(AUTH.role!=='admin') return; G('vSeg').hidden=false; G('lReload').onclick=()=>logRender();
+  G('lFresh').onclick=()=>location.reload();
+  G('aReload').onclick=()=>accLoad(); G('aShow').onchange=()=>accDraw();
+  for(const id of ['aPend','aList']) G(id).onclick=accClick;
+  accLoad();
+  if(AUTH.sheetUrl) G('lSheet').href=AUTH.sheetUrl; else G('lSheet').hidden=true;
+  G('lMeta').innerHTML=`<span>마지막 반영 <b>${esc(D.builtAt||'-')}</b></span><span>회차 <b>${R.length}</b>개 (${esc(R.map(r=>r.label).join(', '))})</span><span>주문 <b>${nf(R.reduce((p,r)=>p+r.orders.length,0))}</b>건</span><span>품목 <b>${D.items.length}</b>종</span>`; }
+async function logRender(){
+  G('periodLbl').textContent='관리자 전용'; accLoad();
+  G('lTable').innerHTML='<tbody><tr><td class="empty">불러오는 중…</td></tr></tbody>';
+  let res; try{ res=await api({action:'logs',token:AUTH.token}); }catch(e){ res={ok:false,msg:'접속 서버에 연결하지 못했습니다.'}; }
+  if(!res.ok){ G('lKpis').innerHTML=''; G('lTable').innerHTML=`<tbody><tr><td class="empty">${esc(res.msg||'기록을 불러오지 못했습니다.')}</td></tr></tbody>`; return; }
+  const rows=res.rows||[], kst=new Date(Date.now()+9*3600e3), today=kst.toISOString().slice(0,10), wk=new Date(kst-6*864e5).toISOString().slice(0,10);
+  const ok=r=>r[3]==='관리자'||r[3]==='일반', r7=rows.filter(r=>r[0]>=wk);
+  const K=[['오늘 접속',rows.filter(r=>r[0]===today&&ok(r)).length,'건'],['최근 7일 접속',r7.filter(ok).length,'건'],
+    ['최근 7일 접속자',new Set(r7.filter(ok).map(r=>r[2])).size,'명'],['최근 7일 로그인 실패',r7.filter(r=>r[3]==='실패').length,'건']];
+  G('lKpis').innerHTML=K.map(k=>`<div class="kpi"><div class="l">${k[0]}</div><div class="v">${k[1]}<small>${k[2]}</small></div></div>`).join('');
+  G('lTable').innerHTML='<thead><tr><th class="t">일자</th><th class="t">시간</th><th class="t">이름</th><th class="t">구분</th></tr></thead><tbody>'+
+    (rows.length?rows.map(r=>`<tr><td class="t" style="min-width:100px">${esc(r[0])}</td><td class="t" style="min-width:80px">${esc(r[1])}</td><td class="t">${esc(r[2])}</td><td style="text-align:left;min-width:70px"><span class="pill ${r[3]==='관리자'?'up':r[3]==='실패'?'dn':(r[3]==='권한요청'||r[3]==='승인대기')?'wn':'nt'}">${esc(r[3])}</span></td></tr>`).join(''):'<tr><td colspan="4" class="empty">아직 접속 기록이 없습니다.</td></tr>')+'</tbody>';
+}
+
+// ---------- 계정 관리
+let ACC=[], accBusy=false;
+async function accLoad(){ let res; try{ res=await api({action:'accounts',token:AUTH.token}); }catch(e){ res={ok:false,msg:'접속 서버에 연결하지 못했습니다.'}; }
+  if(!res.ok){ G('aPend').innerHTML=`<tbody><tr><td class="empty">${esc(res.msg||'계정 목록을 불러오지 못했습니다.')}</td></tr></tbody>`; G('aList').innerHTML=''; return; }
+  ACC=res.rows||[]; accDraw(); }
+function accDraw(){
+  const show=G('aShow').checked, pwc=p=>show?esc(p):'•'.repeat(Math.min(10,String(p).length));
+  const pend=ACC.filter(r=>r[2]==='대기'), rest=ACC.filter(r=>r[2]!=='대기');
+  G('aCnt').hidden=!pend.length; G('aCnt').textContent=pend.length+'건 대기'; G('vLogBtn').textContent='관리자'+(pend.length?` (${pend.length})`:'');
+  G('aPend').innerHTML='<thead><tr><th class="t">이름</th><th class="t">비밀번호</th><th class="t">요청 일시</th><th></th></tr></thead><tbody>'+
+    (pend.length?pend.map(r=>`<tr><td class="t">${esc(r[0])}</td><td class="pwc">${pwc(r[1])}</td><td class="t">${esc(r[3])}</td><td class="act"><button type="button" class="btn sm ok" data-op="approve" data-name="${esc(r[0])}">수락</button><button type="button" class="btn sm danger" data-op="reject" data-name="${esc(r[0])}">거절</button></td></tr>`).join(''):'<tr><td colspan="4" class="empty">대기 중인 요청이 없습니다.</td></tr>')+'</tbody>';
+  G('aList').innerHTML='<thead><tr><th class="t">이름</th><th class="t">비밀번호</th><th class="t">상태</th><th class="t">처리 일시</th><th></th></tr></thead><tbody>'+
+    (rest.length?rest.map(r=>`<tr><td class="t">${esc(r[0])}</td><td class="pwc">${pwc(r[1])}</td><td style="text-align:left"><span class="pill ${r[2]==='승인'?'up':'dn'}">${esc(r[2])}</span></td><td class="t">${esc(r[4])}</td><td class="act">${r[2]==='승인'?`<button type="button" class="btn sm" data-op="block" data-name="${esc(r[0])}">차단</button>`:`<button type="button" class="btn sm" data-op="unblock" data-name="${esc(r[0])}">차단 해제</button>`}<button type="button" class="btn sm danger" data-op="delete" data-name="${esc(r[0])}">삭제</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">승인된 계정이 없습니다.</td></tr>')+'</tbody>';
+}
+async function accClick(e){ const b=e.target.closest('[data-op]'); if(!b||accBusy) return; const op=b.dataset.op;
+  if((op==='delete'||op==='reject')&&!b.dataset.armed){ b.dataset.armed='1'; b.textContent=op==='delete'?'정말 삭제':'정말 거절'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.armed; b.textContent=op==='delete'?'삭제':'거절'; } },4000); return; }
+  accBusy=true; b.disabled=true; let res; try{ res=await api({action:'account_set',token:AUTH.token,name:b.dataset.name,op}); }catch(err){ res={ok:false,msg:'접속 서버에 연결하지 못했습니다.'}; }
+  accBusy=false; if(res.ok){ ACC=res.rows||[]; accDraw(); } else { b.disabled=false; b.textContent=res.msg||'실패'; } }
+
+
+// ---------- 화면 전환
+const G=id=>document.getElementById(id);
+let view='dash';
+function setView(v){ view=(v==='log'&&AUTH.role==='admin')?'log':'dash'; G('vDash').hidden=view!=='dash'; G('vLog').hidden=view!=='log';
+  $$('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view===view)); if(view==='log') logRender(); else render(); }
+
+logInit(); setView('dash');
+}
+// ================= 로그인 / 권한요청 / 데이터 받기 =================
+const API_URL='https://script.google.com/macros/s/AKfycbzOFeR6FjfvIoXLWjmEcEaQ2-AVq-TctIPujE48puRiOpqLQohnRuTR9LuEGOfJCi2TbQ/exec';
+const SS='olkye-gg-auth';
+async function api(body){
+  const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'});
+  return r.json();
+}
+function enter(auth,D){
+  document.getElementById('gate').hidden=true; document.getElementById('app').hidden=false;
+  const w=document.getElementById('whoLbl'); w.textContent='';
+  const b=document.createElement('b'); b.textContent=auth.name; w.append(b,' · '+(auth.role==='admin'?'관리자':'일반 조회'));
+  startApp(D,auth);
+}
+(function(){
+  const g=id=>document.getElementById(id), form=g('gateForm'), err=g('gErr'), okm=g('gOk'), go=g('gGo'), sw=g('gSwitch');
+  let mode='login';
+  const drop=()=>{ try{ sessionStorage.removeItem(SS); }catch(e){} };
+  const label=()=>mode==='login'?'로그인':'요청하기';
+  const busy=(on,text)=>{ go.disabled=on; sw.disabled=on; go.textContent=on?text:label(); for(const id of ['gName','gPw','gPw2']) g(id).disabled=on; };
+  function setMode(m,keepMsg){ mode=m; const rq=m==='request'; g('gPw2Wrap').hidden=!rq; g('gPw2').required=rq; go.textContent=label(); sw.textContent=rq?'로그인으로 돌아가기':'권한요청';
+    g('gSub').textContent=rq?'사용할 이름과 비밀번호를 정해서 요청하세요.':'이름과 비밀번호를 입력하세요.';
+    g('gFine').textContent=rq?'관리자가 수락하면 로그인할 수 있습니다. 비밀번호는 6자 이상이며 관리자가 확인할 수 있으니, 다른 곳에서 쓰는 비밀번호는 사용하지 마세요.'
+      :'처음이면 [권한요청]으로 신청하세요. 관리자가 수락해야 로그인할 수 있습니다. 접속 기록(이름, 접속 일시)이 저장됩니다.';
+    err.textContent=''; if(!keepMsg) okm.textContent=''; g('gPw').value=''; g('gPw2').value=''; }
+  const noData=res=>{ err.textContent='아직 반영된 데이터가 없습니다. 구글 시트에서 [대시보드 → 반영하기]를 눌러야 합니다.';
+    if(res.sheetUrl){ const a=document.createElement('a'); a.href=res.sheetUrl; a.target='_blank'; a.rel='noopener'; a.textContent=' 구글 시트 열기'; err.append(a); } };
+  g('logout').onclick=()=>{ drop(); location.reload(); };
+  sw.onclick=()=>{ setMode(mode==='login'?'request':'login'); g('gName').focus(); };
+  form.addEventListener('submit',async e=>{ e.preventDefault(); err.textContent=''; okm.textContent='';
+    const name=g('gName').value.trim(), pw=g('gPw').value;
+    if(!name){ err.textContent='이름을 입력하세요.'; return; }
+    if(API_URL.indexOf('http')!==0){ err.textContent='접속 서버 주소가 아직 설정되지 않았습니다.'; return; }
+    if(mode==='request'){
+      if(pw.length<6){ err.textContent='비밀번호는 6자 이상으로 입력하세요.'; return; }
+      if(pw!==g('gPw2').value){ err.textContent='비밀번호 확인이 일치하지 않습니다.'; return; }
+      busy(true,'요청 중…');
+      try{ const res=await api({action:'request',name,pw}); busy(false);
+        if(res.ok){ setMode('login',true); okm.textContent=res.msg||'요청이 접수되었습니다.'; } else err.textContent=res.msg||'요청하지 못했습니다.'; }
+      catch(e1){ busy(false); err.textContent='접속 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.'; }
+      return; }
+    busy(true,'확인 중…');
+    try{ const res=await api({action:'login',name,pw});
+      if(!res.ok){ busy(false); err.textContent=res.msg||'이름 또는 비밀번호가 맞지 않습니다.'; g('gPw').value=''; g('gPw').focus(); return; }
+      if(!res.data||!res.data.rounds||!res.data.rounds.length){ busy(false); noData(res); return; }
+      const auth={name,role:res.role,token:res.token,sheetUrl:res.sheetUrl||''};
+      try{ sessionStorage.setItem(SS,JSON.stringify(auth)); }catch(e2){}
+      enter(auth,res.data); }
+    catch(e1){ err.textContent='접속 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.'; }
+    busy(false); });
+  setMode('login');
+  let saved=null; try{ saved=JSON.parse(sessionStorage.getItem(SS)||'null'); }catch(e){}
+  if(saved&&saved.token){ busy(true,'데이터를 불러오는 중…'); g('gName').value=saved.name||'';
+    api({action:'data',token:saved.token}).then(res=>{ busy(false);
+      if(res.ok&&res.data&&res.data.rounds&&res.data.rounds.length){ saved.role=res.role; saved.sheetUrl=res.sheetUrl||''; enter(saved,res.data); }
+      else { drop(); if(res.ok) noData(res); else err.textContent=res.msg||''; g('gPw').focus(); } })
+    .catch(()=>{ busy(false); err.textContent='접속 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.'; }); }
+  else g('gName').focus();
+})();
+
+</script>
+</body></html>
