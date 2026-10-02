@@ -345,6 +345,12 @@ td.pwc{font-family:var(--f-num);text-align:left}
       <li>이 화면에서 "반영된 데이터 다시 불러오기"를 누릅니다.</li>
     </ol>
   </section>
+  <section class="card">
+    <div class="hd"><h2>회차 분석 보고 메일</h2></div>
+    <div class="meta" id="mMeta"></div>
+    <div class="stack" id="mRows"></div>
+    <div class="note" id="mMsg" role="status">회차를 고르고 버튼을 누르면 그 회차의 매출, 주문·고객, 품목, 판매 흐름과 전체 회차 표를 메일로 보냅니다. 가격표가 비어 있는 회차는 보낼 수 없습니다.</div>
+  </section>
   <section class="kpis k4" id="lKpis" aria-label="접속 요약"></section>
   <section class="card">
     <div class="hd"><h2>접속 기록</h2><button type="button" class="btn" id="lReload">새로고침</button></div>
@@ -379,7 +385,7 @@ function prep(){
     // 회차 중 주문이 끊긴 품목 (필터와 무관한 사실)
     const m=V.items.map(()=>Array(r.days).fill(0));
     r.orders.forEach(o=>o.L.forEach(([i,q])=>{if(i!==SET)m[i][o.d-1]+=q}));
-    r.cut=m.map(a=>{let k=r.days;while(k>0&&a[k-1]===0)k--;return k<r.days&&k>0?k:0}); // 마지막 판매 일차 (끊긴 경우만)
+    r.cut=m.map(a=>{let k=r.days;while(k>0&&a[k-1]===0)k--;return k<r.days&&k>0&&a.reduce((p,q)=>p+q,0)/k>=10?k:0}); // 마지막 판매 일차 (끊긴 경우만)
   });
 }
 
@@ -668,7 +674,7 @@ function logInit(){ if(AUTH.role!=='admin') return; G('vSeg').hidden=false; G('l
   G('lFresh').onclick=()=>location.reload();
   G('aReload').onclick=()=>accLoad(); G('aShow').onchange=()=>accDraw();
   for(const id of ['aPend','aList']) G(id).onclick=accClick;
-  accLoad();
+  accLoad(); mailInit();
   if(AUTH.sheetUrl) G('lSheet').href=AUTH.sheetUrl; else G('lSheet').hidden=true;
   G('lMeta').innerHTML=`<span>마지막 반영 <b>${esc(DATA.builtAt||'-')}</b></span>`+DATA.vendors.map(v=>`<span>${esc(v.name)} <b>${v.rounds.length}</b>회차 · 주문 <b>${nf(v.rounds.reduce((p,r)=>p+r.orders.length,0))}</b>건</span>`).join(''); }
 async function logRender(){
@@ -704,6 +710,21 @@ async function accClick(e){ const b=e.target.closest('[data-op]'); if(!b||accBus
   accBusy=true; b.disabled=true; let res; try{ res=await api({action:'account_set',token:AUTH.token,name:b.dataset.name,op}); }catch(err){ res={ok:false,msg:'접속 서버에 연결하지 못했습니다.'}; }
   accBusy=false; if(res.ok){ ACC=res.rows||[]; accDraw(); } else { b.disabled=false; b.textContent=res.msg||'실패'; } }
 
+
+// ---------- 회차 분석 보고 메일
+async function mailInit(){
+  let info; try{ info=await api({action:'mail_info',token:AUTH.token}); }catch(e){ info={ok:false}; }
+  G('mMeta').innerHTML=info.ok?`<span>받는 사람 <b>${esc(info.to)}</b></span>`:'<span>메일 기능은 Apps Script 코드를 최신 버전으로 바꾼 뒤에 쓸 수 있습니다.</span>';
+  G('mRows').innerHTML=DATA.vendors.map((v,i)=>`<div class="fg"><select id="mSel${i}" aria-label="${esc(v.name)} 회차">`+v.rounds.map((r,k)=>({r,k})).reverse().map(({r,k})=>`<option value="${k}">${esc(r.label+(r.inf?' '+r.inf:''))}${r.noPrice&&r.noPrice.length?' (가격표 미입력)':''}</option>`).join('')+`</select><button type="button" class="btn pri" data-mail="${i}">${esc(v.name)} 회차 분석 보고 메일 발송</button></div>`).join('');
+  let busy=false;
+  G('mRows').onclick=async e=>{ const b=e.target.closest('[data-mail]'); if(!b||busy) return; const i=+b.dataset.mail, v=DATA.vendors[i], r=v.rounds[+G('mSel'+i).value], lab=b.dataset.lab||(b.dataset.lab=b.textContent), msg=G('mMsg');
+    if(r.noPrice&&r.noPrice.length){ msg.textContent=`${v.name} ${r.label}${r.inf?' '+r.inf:''} 회차는 가격표에 가격이 없는 품목이 있어 보낼 수 없습니다. 구글 시트 "가격표" 탭을 채우고 반영한 뒤 다시 시도하세요.`; msg.style.color='var(--bad)'; return; }
+    if(!b.dataset.armed){ b.dataset.armed='1'; b.textContent='한 번 더 누르면 발송'; setTimeout(()=>{ if(b.dataset.armed){ delete b.dataset.armed; b.textContent=lab; } },4000); return; }
+    delete b.dataset.armed; busy=true; b.disabled=true; b.textContent='보내는 중…'; msg.textContent=''; msg.style.color='';
+    let res; try{ res=await api({action:'send_report',token:AUTH.token,vendor:v.name,round:r.id}); }catch(err){ res={ok:false,msg:'접속 서버에 연결하지 못했습니다.'}; }
+    busy=false; b.disabled=false; b.textContent=lab;
+    msg.textContent=res.ok?res.msg:(res.msg||'보내지 못했습니다.'); msg.style.color=res.ok?'var(--good)':'var(--bad)'; };
+}
 
 // ---------- 화면 전환
 const G=id=>document.getElementById(id);
