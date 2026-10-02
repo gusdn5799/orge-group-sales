@@ -163,6 +163,8 @@ td.setrow,tr.setrow td{background:var(--set-soft)}
 .row.wide{grid-template-columns:minmax(0,1fr) minmax(0,1.7fr)}
 .row.mid{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}
 #tip{position:fixed;left:0;top:0}
+.warnbox{font-size:12.5px;line-height:1.55;color:var(--warn);background:var(--warn-bg);border-radius:8px;padding:9px 12px}
+#infTbl th.t,#infTbl td.t{min-width:84px}
 .stack{display:grid;gap:12px;min-width:0}
 .stack .tbl th.t,.stack .tbl td.t{min-width:84px}
 .hb.wf{grid-template-columns:104px minmax(0,1fr) 84px}
@@ -172,7 +174,7 @@ td.setrow,tr.setrow td{background:var(--set-soft)}
 .hb.wf .ht i{border-radius:3px}
 .hb .hv.up{color:var(--good);background:none} .hb .hv.dn{color:var(--bad);background:none}
 @media (max-width:760px){.hb.wf{grid-template-columns:88px minmax(0,1fr) 72px}}
-.allr{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:24px;align-items:center}
+.allr{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:24px;align-items:start}
 .allc{display:grid;gap:10px;min-width:0}
 .hb.three{grid-template-columns:78px minmax(0,1fr) 62px}
 .hb .ht i.f{background:var(--y-mid);border-radius:0 3px 3px 0}
@@ -228,13 +230,16 @@ td.pwc{font-family:var(--f-num);text-align:left}
 </div>
 <div class="wrap" id="app" hidden>
 <header class="top">
-  <div><div class="ttl"><h1>올계 공구 대시보드</h1><span class="seg vseg" id="vSeg" role="group" aria-label="화면 선택" hidden><button type="button" data-view="dash">대시보드</button><button type="button" data-view="log" id="vLogBtn">관리자</button></span></div><div class="sub" id="srcLbl"></div></div>
+  <div><div class="ttl"><h1>올계 공구 대시보드</h1><span class="seg vseg" id="vendSeg" role="group" aria-label="벤더 선택" hidden></span><span class="seg" id="vSeg" role="group" aria-label="화면 선택" hidden><button type="button" data-view="dash">대시보드</button><button type="button" data-view="log" id="vLogBtn">관리자</button></span></div><div class="sub" id="srcLbl"></div></div>
   <div><div class="who"><span id="whoLbl"></span><button type="button" class="reset" id="logout">로그아웃</button></div><div class="sub" id="periodLbl" style="text-align:right"></div></div>
 </header>
 
 <div id="vDash" class="view">
 
+<div class="warnbox" id="warn" hidden></div>
+
 <section class="filters" aria-label="필터">
+  <div class="fg" id="fInfWrap" hidden><span class="t">인플루언서</span><span id="fInf" class="fg"></span></div>
   <div class="fg"><label class="t" for="fRound">회차</label><select id="fRound"></select></div>
   <div class="fg"><label class="t" for="fCmp">비교</label><select id="fCmp"></select></div>
   <div class="fg"><span class="t">보기</span>
@@ -269,9 +274,9 @@ td.pwc{font-family:var(--f-num);text-align:left}
 </div>
 
 <section class="card">
-  <div class="hd"><h2>전체 회차 지표 <span class="note">(원)</span></h2><span class="note">필터와 무관하게 회차 전체 기준</span></div>
+  <div class="hd"><h2>전체 회차 지표 <span class="note">(원)</span></h2><span class="note">품목·고객 필터와 무관하게 회차 전체 기준</span></div>
   <div class="allr">
-    <div class="tbl"><table id="allTbl"></table></div>
+    <div class="stack"><div class="tbl"><table id="allTbl"></table></div><div id="infWrap" class="stack" hidden><div class="note">인플루언서별 합계 (이름을 누르면 그 인플루언서 회차만 봅니다)</div><div class="tbl"><table id="infTbl"></table></div></div></div>
     <div class="allc"><div class="legend" id="allLg"></div><div class="hbs" id="allCh"></div></div>
   </div>
 </section>
@@ -282,7 +287,7 @@ td.pwc{font-family:var(--f-num);text-align:left}
     <div class="stack" id="drvBox"></div>
   </section>
   <section class="card">
-    <div class="hd"><h2 id="conTtl">고객 매출 집중도</h2><span class="note">필터와 무관하게 전체 기준</span></div>
+    <div class="hd"><h2 id="conTtl">고객 매출 집중도</h2><span class="note">품목·고객 필터와 무관하게 전체 기준</span></div>
     <div class="stack" id="conBox"></div>
   </section>
 </div>
@@ -294,7 +299,7 @@ td.pwc{font-family:var(--f-num);text-align:left}
     <div class="hbs" id="itCh"></div>
   </section>
   <section class="card">
-    <h2>품목 × 일차 판매 수량 <span class="note">(팩, ALL세트분 포함)</span></h2>
+    <h2>품목 × 일차 판매 수량 <span class="note" id="heatNote">(팩, ALL세트분 포함)</span></h2>
     <div class="tbl heat"><table id="heat"></table></div>
     <div class="notes" id="heatNotes"></div>
   </section>
@@ -333,9 +338,9 @@ td.pwc{font-family:var(--f-num);text-align:left}
       <span class="fg"><a class="btn pri" id="lSheet" href="#" target="_blank" rel="noopener">회차 추가 (구글 시트 열기)</a><button type="button" class="btn" id="lFresh">반영된 데이터 다시 불러오기</button></span></div>
     <div class="meta" id="lMeta"></div>
     <ol class="steps">
-      <li>스마트스토어에서 주문조회 엑셀을 받습니다. (단품 상품, ALL세트 상품 각각)</li>
-      <li>구글 시트의 "주문_단품" 탭에서 파일 → 가져오기 → 업로드 → "현재 시트에 추가"로 단품 엑셀을 넣습니다. "주문_ALL세트" 탭에도 같은 방법으로 넣습니다.</li>
-      <li>"회차" 탭 맨 아래에 회차명, 시작일, 종료일을 한 줄 적습니다.</li>
+      <li>스마트스토어에서 주문조회 엑셀을 받습니다. 비밀번호가 걸린 파일은 엑셀에서 비밀번호를 풀고 다시 저장합니다.</li>
+      <li>구글 시트의 해당 주문 탭(주문_…)에서 파일 → 가져오기 → 업로드 → "현재 시트에 추가"로 넣습니다.</li>
+      <li>"회차" 탭 맨 아래에 벤더, 인플루언서, 회차명, 시작일, 종료일을 한 줄 적습니다. 처음 파는 상품이면 "상품" 탭에 상품번호와 벤더, 인플루언서도 적습니다.</li>
       <li>시트 메뉴 대시보드 → 반영하기를 누릅니다. 구매자 이름·ID·수취인은 이때 고객키로 바뀌고 지워집니다.</li>
       <li>이 화면에서 "반영된 데이터 다시 불러오기"를 누릅니다.</li>
     </ol>
@@ -354,36 +359,40 @@ td.pwc{font-family:var(--f-num);text-align:left}
 <script>
 function startApp(D,AUTH){
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const NI=D.items.length, SET=NI, NS=D.setItems.length;
-const SETN=D.setName||'ALL세트', FS=(D.freeShip/1e4)+'만원';
-const NAMES=[...D.items,SETN];
+const DATA=D.vendors?D:{builtAt:D.builtAt,vendors:[Object.assign({name:'아오라',infs:[]},D)]};   // 이전 형식 데이터도 그대로 읽음
 const WD=['일','월','화','수','목','금','토'];
+let V,VI=0,NI,SET,NS,SETN,FS,NAMES,RV,R,S=null,INF='';
 
-/* ---------- 전처리 ---------- */
-const R=D.rounds.map(r=>{
-  const orders=r.orders.map(o=>({c:o[0],d:o[1],h:o[2],L:[],pay:0,sup:0,packs:0,kinds:0}));
-  r.lines.forEach(([o,i,q])=>{const O=orders[o];O.L.push([i,q]);O.kinds++;
-    if(i===SET){O.pay+=q*r.setPay;O.sup+=q*r.setSup;O.packs+=q*NS}
-    else{O.pay+=q*r.pay[i];O.sup+=q*r.sup[i];O.packs+=q}});
-  return Object.assign({},r,{orders,custs:new Set(orders.map(o=>o.c))});
-});
-R.forEach((r,ri)=>{const prev=new Set();for(let k=0;k<ri;k++)R[k].custs.forEach(c=>prev.add(c));
-  r.orders.forEach(o=>{o.rep=prev.has(o.c)});
-  // 회차 중 주문이 끊긴 품목 (필터와 무관한 사실)
-  const m=D.items.map(()=>Array(r.days).fill(0));
-  r.orders.forEach(o=>o.L.forEach(([i,q])=>{if(i!==SET)m[i][o.d-1]+=q}));
-  r.cut=m.map(a=>{let k=r.days;while(k>0&&a[k-1]===0)k--;return k<r.days&&k>0?k:0}); // 마지막 판매 일차 (끊긴 경우만)
-});
+/* ---------- 전처리 (벤더별) ---------- */
+function prep(){
+  NI=V.items.length;NS=V.setItems.length;SET=V.setName?NI:-1;SETN=V.setName||'세트';FS=V.freeShip?(V.freeShip/1e4)+'만원':'';
+  NAMES=V.setName?[...V.items,SETN]:[...V.items];
+  RV=V.rounds.map(r=>{
+    const orders=r.orders.map(o=>({c:o[0],d:o[1],h:o[2],L:[],pay:0,sup:0,packs:0,kinds:0}));
+    r.lines.forEach(([o,i,q])=>{const O=orders[o];O.L.push([i,q]);O.kinds++;
+      if(i===SET){O.pay+=q*r.setPay;O.sup+=q*r.setSup;O.packs+=q*NS}
+      else{O.pay+=q*r.pay[i];O.sup+=q*r.sup[i];O.packs+=q}});
+    return Object.assign({},r,{orders,custs:new Set(orders.map(o=>o.c)),label:r.inf?`${r.label} ${r.inf}`:r.label,priced:!(r.noPrice&&r.noPrice.length)});
+  });
+  RV.forEach((r,ri)=>{const prev=new Set();for(let k=0;k<ri;k++)RV[k].custs.forEach(c=>prev.add(c));
+    r.first=ri===0;r.orders.forEach(o=>{o.rep=prev.has(o.c)});
+    // 회차 중 주문이 끊긴 품목 (필터와 무관한 사실)
+    const m=V.items.map(()=>Array(r.days).fill(0));
+    r.orders.forEach(o=>o.L.forEach(([i,q])=>{if(i!==SET)m[i][o.d-1]+=q}));
+    r.cut=m.map(a=>{let k=r.days;while(k>0&&a[k-1]===0)k--;return k<r.days&&k>0?k:0}); // 마지막 판매 일차 (끊긴 경우만)
+  });
+}
 
 /* ---------- 상태 ---------- */
-const S={r:R.length-1,c:R.length-2,m:'q',b:'sup',ct:'all',d:'day',items:new Set(NAMES.map((_,i)=>i))};
+function prevOf(ri){for(let k=ri-1;k>=0;k--)if(R[k].inf===R[ri].inf)return k;return ri-1}
+function freshS(keep){return {r:R.length-1,c:prevOf(R.length-1),m:keep?keep.m:'q',b:keep?keep.b:'sup',ct:'all',d:keep?keep.d:'day',items:new Set(NAMES.map((_,i)=>i))}}
 
 /* ---------- 집계 ---------- */
 function agg(ri,ct){
   const r=R[ri],sel=S.items,z=n=>Array(n).fill(0);
   const a={r,single:z(NI),setU:z(NI),sets:0,pay:0,sup:0,packs:0,itPay:z(NI),itSup:z(NI),
     dayQ:z(r.days),dayPay:z(r.days),daySup:z(r.days),hrQ:z(24),hrPay:z(24),hrSup:z(24),
-    itemDay:D.items.map(()=>z(r.days)),itemOrd:z(NI+1),orders:0,custs:new Set(),repC:new Set(),oPay:[],oPacks:[],oKinds:[]};
+    itemDay:V.items.map(()=>z(r.days)),itemOrd:z(NI+1),orders:0,custs:new Set(),repC:new Set(),oPay:[],oPacks:[],oKinds:[]};
   for(const o of r.orders){
     if(ct==='new'&&o.rep)continue; if(ct==='rep'&&!o.rep)continue;
     let hit=false;const seen=new Set();const di=o.d-1;
@@ -392,7 +401,7 @@ function agg(ri,ct){
       if(i===SET){
         a.sets+=q;const p=q*r.setPay,s=q*r.setSup;a.pay+=p;a.sup+=s;a.dayPay[di]+=p;a.daySup[di]+=s;seen.add(SET);
         if(o.d===1){a.hrPay[o.h]+=p;a.hrSup[o.h]+=s}
-        for(const j of D.setItems){if(!sel.has(j))continue;a.setU[j]+=q;a.packs+=q;a.dayQ[di]+=q;a.itemDay[j][di]+=q;seen.add(j);if(o.d===1)a.hrQ[o.h]+=q}
+        for(const j of V.setItems){if(!sel.has(j))continue;a.setU[j]+=q;a.packs+=q;a.dayQ[di]+=q;a.itemDay[j][di]+=q;seen.add(j);if(o.d===1)a.hrQ[o.h]+=q}
       }else{
         const p=q*r.pay[i],s=q*r.sup[i];a.single[i]+=q;a.itPay[i]+=p;a.itSup[i]+=s;a.pay+=p;a.sup+=s;a.packs+=q;
         a.dayQ[di]+=q;a.dayPay[di]+=p;a.daySup[di]+=s;a.itemDay[i][di]+=q;seen.add(i);
@@ -404,7 +413,7 @@ function agg(ri,ct){
   const n=a.orders;
   a.aov=n?a.oPay.reduce((x,y)=>x+y,0)/n:NaN;
   a.avgPacks=n?a.oPacks.reduce((x,y)=>x+y,0)/n:NaN;
-  a.free=n?a.oPay.filter(v=>v>=D.freeShip).length/n:NaN;
+  a.free=n&&V.freeShip?a.oPay.filter(v=>v>=V.freeShip).length/n:NaN;
   a.repShare=a.custs.size?a.repC.size/a.custs.size:NaN;
   a.d1=a.packs?a.dayQ[0]/a.packs:NaN;
   return a;
@@ -439,41 +448,47 @@ const lg=(el,arr)=>{el.innerHTML=arr.map(([c,t])=>`<span><i style="background:va
 
 /* ---------- 렌더 ---------- */
 function render(){
-  if(S.r===0)S.ct='all';
-  const r=R[S.r],noHist=S.ct!=='all'&&S.c===0,hasC=S.c>=0&&S.c!==S.r&&!noHist,rc=hasC?R[S.c]:null;
+  if(R[S.r].first)S.ct='all';
+  const r=R[S.r],noHist=S.ct!=='all'&&S.c>=0&&!!R[S.c]&&R[S.c].first,hasC=S.c>=0&&S.c!==S.r&&!!R[S.c]&&!noHist,rc=hasC?R[S.c]:null;
   const a=agg(S.r,S.ct),b=hasC?agg(S.c,S.ct):null;
   const cl=hasC?rc.label:'';
 
   // 머리말
-  $('#srcLbl').textContent=`단품 체제 전환 후 회차 집계 · 취소·반품 제외 · 반영 ${D.builtAt} · [개발자 : 정현우]`;
-  $('#periodLbl').textContent=`${r.label} · ${dayLabel(r,0)} ~ ${dayLabel(r,r.days-1)} · ${r.days}일`+(hasC?` · 비교 ${cl}`:noHist?` · 첫 회차는 이전 이력이 없어 고객 필터 비교 생략`:'');
+  $('#srcLbl').textContent=`취소·반품 제외 · 반영 ${DATA.builtAt} · [개발자 : 정현우]`;
+  const np=[...new Set(R.flatMap(x=>x.noPrice||[]))];
+  $('#warn').hidden=!np.length;$('#warn').textContent=np.length?`${V.name} 가격표에 가격이 없는 품목 ${np.length}개는 금액이 0원으로 계산돼요. 구글 시트 "가격표" 탭에 공구 소비자가와 공급가를 넣고 반영하면 금액 지표가 채워져요. (${np.join(', ')})`:'';
+  $$('#fInf .chip').forEach(x=>x.setAttribute('aria-pressed',x.dataset.inf===INF));
+  $('#periodLbl').textContent=`${V.name} ${r.label} · ${dayLabel(r,0)} ~ ${dayLabel(r,r.days-1)} · ${r.days}일`+(hasC?` · 비교 ${cl}`:noHist?` · 첫 회차는 이전 이력이 없어 고객 필터 비교 생략`:'');
 
   // 필터 상태
   $('#fRound').value=S.r;$('#fCmp').value=hasC?S.c:-1;
   $$('[data-m]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.m===S.m));
   $$('[data-b]').forEach(x=>{x.setAttribute('aria-pressed',x.dataset.b===S.b)});
-  $$('[data-c]').forEach(x=>{x.setAttribute('aria-pressed',x.dataset.c===S.ct);x.disabled=(x.dataset.c!=='all'&&S.r===0)});
+  $$('[data-c]').forEach(x=>{x.setAttribute('aria-pressed',x.dataset.c===S.ct);x.disabled=(x.dataset.c!=='all'&&r.first)});
   $$('[data-d]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.d===S.d));
   $$('#fIt .chip').forEach(x=>x.setAttribute('aria-pressed',S.items.has(+x.dataset.i)));
   $('#fItAll').checked=S.items.size===NAMES.length;$('#fItAll').indeterminate=S.items.size>0&&S.items.size<NAMES.length;
 
   // KPI
-  const cv=(t)=>hasC?`<span>${cl} ${t}</span>`:'';
+  const cv=(t)=>hasC?`<span>${esc(cl)} ${t}</span>`:'';
+  const pr0=r.priced||a.pay>0,hasSet=SET>=0;
   const K=[
-    ['올계 매출',won(a.sup),'원',dPct(a.sup,b&&b.sup),b&&won(b.sup)],
-    ['결제액',won(a.pay),'원',dPct(a.pay,b&&b.pay),b&&won(b.pay)],
+    ['올계 매출',pr0?won(a.sup):'–',pr0?'원':'',dPct(a.sup,b&&b.sup),b&&won(b.sup)],
+    ['결제액',pr0?won(a.pay):'–',pr0?'원':'',dPct(a.pay,b&&b.pay),b&&won(b.pay)],
     ['판매 팩 수',nf(a.packs),'팩',dPct(a.packs,b&&b.packs),b&&nf(b.packs)],
-    [SETN+' 판매',S.items.has(SET)?nf(a.sets):'–',S.items.has(SET)?'세트':'',dPct(a.sets,b&&b.sets),b&&S.items.has(SET)&&nf(b.sets)],
+    hasSet?[SETN+' 판매',S.items.has(SET)?nf(a.sets):'–',S.items.has(SET)?'세트':'',dPct(a.sets,b&&b.sets),b&&S.items.has(SET)&&nf(b.sets)]:['인플루언서',esc(r.inf||'–'),'','',''],
     ['주문 수',nf(a.orders),'건',dPct(a.orders,b&&b.orders),b&&nf(b.orders)],
-    ['객단가',isFinite(a.aov)?nf(a.aov):'–',isFinite(a.aov)?'원':'',dPct(a.aov,b&&b.aov),b&&isFinite(b.aov)&&nf(b.aov)],
-    [FS+' 이상 주문 비중',pc(a.free),'',dPp(a.free,b&&b.free),b&&pc(b.free)],
+    ['객단가',isFinite(a.aov)&&pr0?nf(a.aov):'–',isFinite(a.aov)&&pr0?'원':'',dPct(a.aov,b&&b.aov),b&&isFinite(b.aov)&&nf(b.aov)],
+    [FS?FS+' 이상 주문 비중':'무료배송 기준 이상 주문 비중',pc(a.free),'',dPp(a.free,b&&b.free),FS&&b&&pc(b.free)],
     ['고객 수',nf(a.custs.size),'명',dPct(a.custs.size,b&&b.custs.size),b&&nf(b.custs.size)],
-    ['재구매 고객 비중',S.r===0?'–':pc(a.repShare),'',S.r===0||(hasC&&S.c===0)?'':dPp(a.repShare,b&&b.repShare),S.r===0?'':(b&&S.c!==0&&pc(b.repShare))],
+    ['재구매 고객 비중',r.first?'–':pc(a.repShare),'',r.first||(hasC&&rc.first)?'':dPp(a.repShare,b&&b.repShare),r.first?'':(b&&!rc.first&&pc(b.repShare))],
     ['1일차 판매 비중',pc(a.d1),'',dPp(a.d1,b&&b.d1),b&&pc(b.d1)]];
   $('#kpis').innerHTML=K.map(([l,v,u,d,c],i)=>{
     let sub=(d||'')+(c?cv(c):'');
-    if(i===8&&S.r===0)sub='<span>첫 집계 회차라 이전 이력 없음</span>';
-    if(i===3&&!S.items.has(SET))sub='<span>품목 필터에서 제외됨</span>';
+    if(i===8&&r.first)sub='<span>첫 집계 회차라 이전 이력 없음</span>';
+    if(i===3&&hasSet&&!S.items.has(SET))sub='<span>품목 필터에서 제외됨</span>';
+    if(i===6&&!FS)sub='<span>무료배송 기준 미입력</span>';
+    if((i<2||i===5)&&!pr0)sub='<span>가격표 미입력</span>';
     return `<div class="kpi"><div class="l">${l}</div><div class="v">${v}${u?`<small>${u}</small>`:''}</div><div class="d">${sub||'&nbsp;'}</div></div>`}).join('');
 
   // 일차별
@@ -498,7 +513,7 @@ function render(){
   $('#hrNote').textContent=tot1?`가로축은 시각(시). 오픈 첫 1시간(${h0}시대)에 1일차 판매의 ${pc(first/tot1,0)}가 나갔어요.`+(S.m!=='q'?' 막대에 올리면 금액이 보여요.':''):'';
 
   // 전체 회차 지표 (필터와 무관)
-  const AR=R.map(x=>({l:x.label,pay:x.orders.reduce((p,o)=>p+o.pay,0),sup:x.orders.reduce((p,o)=>p+o.sup,0)}));
+  const AR=R.map(x=>({l:x.label,inf:x.inf,n:x.orders.length,pk:x.orders.reduce((p,o)=>p+o.packs,0),pay:x.orders.reduce((p,o)=>p+o.pay,0),sup:x.orders.reduce((p,o)=>p+o.sup,0)}));
   const tp=AR.reduce((p,x)=>p+x.pay,0),ts=AR.reduce((p,x)=>p+x.sup,0),amx=Math.max(1,...AR.map(x=>x.pay));
   $('#allTbl').innerHTML='<thead><tr><th class="t">회차</th><th>결제액</th><th>매출액</th><th>수수료</th></tr></thead><tbody>'+
     AR.map((x,i)=>`<tr${i===S.r?' class="cur"':''}><td class="t">${esc(x.l)}</td><td>${nf(x.pay)}</td><td>${nf(x.sup)}</td><td>${nf(x.pay-x.sup)}</td></tr>`).join('')+
@@ -506,13 +521,19 @@ function render(){
   $('#allCh').innerHTML=AR.map(x=>{const tip=`<b>${esc(x.l)}</b><div class="r"><span>결제액</span><b>${nf(x.pay)}</b></div><div class="r"><span>매출액</span><b>${nf(x.sup)}</b></div><div class="r"><span>수수료</span><b>${nf(x.pay-x.sup)}</b></div>`;
     return `<div class="hb three"${tipAttr(tip)}><div class="hn">${esc(x.l)}</div><div class="ht"><i style="width:${(x.sup/amx*100).toFixed(2)}%"></i><i class="f" style="width:${((x.pay-x.sup)/amx*100).toFixed(2)}%"></i></div><div class="hv">${won(x.pay)}</div></div>`}).join('');
   lg($('#allLg'),[['--accent','매출액'],['--y-mid','수수료'],]);
+  const showInf=V.infs&&V.infs.length>1&&!INF;$('#infWrap').hidden=!showInf;
+  if(showInf){const g=V.infs.map(n=>{const xs=AR.filter(x=>x.inf===n);return {n,k:xs.length,o:xs.reduce((p,x)=>p+x.n,0),pk:xs.reduce((p,x)=>p+x.pk,0),pay:xs.reduce((p,x)=>p+x.pay,0),sup:xs.reduce((p,x)=>p+x.sup,0)}}).sort((x,y)=>y.pk-x.pk);
+    $('#infTbl').innerHTML='<thead><tr><th class="t">인플루언서</th><th>회차</th><th>주문</th><th>판매 팩</th><th>결제액</th><th>매출액</th><th>수수료</th></tr></thead><tbody>'+
+      g.map(x=>`<tr><td class="t"><button type="button" class="lnk" data-inf="${esc(x.n)}">${esc(x.n)}</button></td><td>${x.k}</td><td>${nf(x.o)}</td><td>${nf(x.pk)}</td><td>${nf(x.pay)}</td><td>${nf(x.sup)}</td><td>${nf(x.pay-x.sup)}</td></tr>`).join('')+
+      `</tbody><tfoot><tr><td class="t">합계</td><td>${AR.length}</td><td>${nf(AR.reduce((p,x)=>p+x.n,0))}</td><td>${nf(AR.reduce((p,x)=>p+x.pk,0))}</td><td>${nf(tp)}</td><td>${nf(ts)}</td><td>${nf(tp-ts)}</td></tr></tfoot>`}
 
   // 매출 증감 요인 (현재 필터 기준)
   const vk=S.b==='sup'?'sup':'pay',vL=S.b==='sup'?'올계 매출':'결제액';
   const sg=v=>(v>0?'+':v<0?'−':'')+won(Math.abs(v));
   $('#drvTtl').textContent=`매출 증감 요인 (${vL})`;
   let dh='';
-  if(hasC&&a.orders&&b.orders){
+  if(!pr0||(hasC&&!(b[vk]>0)))dh+=`<div class="empty">가격표에 가격이 들어가면 매출 증감 요인이 계산돼요.</div>`;
+  else if(hasC&&a.orders&&b.orders){
     const V1=a[vk],V0=b[vk],N1=a.orders,N0=b.orders,A1=V1/N1,A0=V0/N0,eN=(N1-N0)*(A0+A1)/2,eA=(A1-A0)*(N0+N1)/2,mid=V0+eN,mx2=Math.max(V0,V1,mid,1);
     const bar=(l,f,t,c,txt,tc)=>`<div class="hb wf"><div class="hn">${esc(l)}</div><div class="ht"><i class="${c}" style="margin-left:${(Math.min(f,t)/mx2*100).toFixed(2)}%;width:${Math.max(0.4,Math.abs(t-f)/mx2*100).toFixed(2)}%"></i></div><div class="hv ${tc||''}">${txt}</div></div>`;
     const ec=v=>v>0?'up':v<0?'dn':'c';
@@ -520,9 +541,9 @@ function render(){
       `<div class="hbs">${bar(cl,0,V0,'c',won(V0))}${bar('주문 수 효과',V0,mid,ec(eN),sg(eN),ec(eN))}${bar('주문당 매출 효과',mid,V1,ec(eA),sg(eA),ec(eA))}${bar(r.label,0,V1,'',won(V1))}</div>`+
       `<div class="note">주문 수 효과는 주문 건수가 달라져 생긴 차이, 주문당 매출 효과는 한 주문의 금액이 달라져 생긴 차이예요. 둘을 더하면 전체 증감과 같아요.</div>`;
   }else dh+=`<div class="empty">${noHist?'첫 회차는 이전 이력이 없어 고객 필터를 건 상태로는 비교할 수 없어요.':'비교 회차를 고르면 증감 요인이 나와요.'}</div>`;
-  if(S.r===0)dh+=`<div class="note">첫 집계 회차라 신규·재구매 고객 매출은 나뉘지 않아요.</div>`;
-  else{
-    const nN=agg(S.r,'new'),nR=agg(S.r,'rep'),tt=(nN[vk]+nR[vk])||1,cmpOk=S.c>0&&S.c!==S.r,cN=cmpOk?agg(S.c,'new'):null,cR=cmpOk?agg(S.c,'rep'):null,cLb=cmpOk?R[S.c].label:'';
+  if(r.first)dh+=`<div class="note">첫 집계 회차라 신규·재구매 고객 매출은 나뉘지 않아요.</div>`;
+  else if(pr0){
+    const nN=agg(S.r,'new'),nR=agg(S.r,'rep'),tt=(nN[vk]+nR[vk])||1,cmpOk=S.c>=0&&S.c!==S.r&&!!R[S.c]&&!R[S.c].first,cN=cmpOk?agg(S.c,'new'):null,cR=cmpOk?agg(S.c,'rep'):null,cLb=cmpOk?R[S.c].label:'';
     const row=(t,g,c)=>`<tr><td class="t">${t}</td><td>${won(g[vk])}</td><td>${pc(g[vk]/tt)}</td><td>${nf(g.orders)}</td>${cmpOk?`<td>${dPct(g[vk],c[vk])||'–'}</td>`:''}</tr>`;
     dh+=`<div class="tbl"><table><thead><tr><th class="t">${esc(r.label)}</th><th>${vL}</th><th>비중</th><th>주문</th>${cmpOk?`<th>${esc(cLb)} 대비</th>`:''}</tr></thead><tbody>${row('신규 고객',nN,cN)}${row('재구매 고객',nR,cR)}</tbody></table></div>`;
   }
@@ -538,7 +559,8 @@ function render(){
   const grp=[];cm.forEach(e=>{const k=Math.min(e.rs.size,3)-1;(grp[k]=grp[k]||{n:0,v:0});grp[k].n++;grp[k].v+=e.v});
   const gl=['1개 회차만 구매','2개 회차 구매','3개 회차 이상 구매'];
   const multi=grp.slice(1).reduce((p,g)=>g?{n:p.n+g.n,v:p.v+g.v}:p,{n:0,v:0});
-  $('#conBox').innerHTML=(R.length>1?`<div class="say">2개 회차 이상 구매한 고객 <b>${nf(multi.n)}명</b>(${pc(multi.n/cm.size)})이 누적 ${vL}의 <b>${pc(multi.v/allV)}</b>를 차지해요.</div>`:'')+
+  if(!(cvB.reduce((x,y)=>x+y,0)>0))$('#conBox').innerHTML='<div class="empty">가격표에 가격이 들어가면 고객 매출 집중도가 계산돼요.</div>';
+  else $('#conBox').innerHTML=(R.length>1?`<div class="say">2개 회차 이상 구매한 고객 <b>${nf(multi.n)}명</b>(${pc(multi.n/cm.size)})이 누적 ${vL}의 <b>${pc(multi.v/allV)}</b>를 차지해요.</div>`:'')+
     `<div class="tbl"><table><thead><tr><th class="t">매출 상위 고객의 비중</th><th>상위 10%</th><th>상위 20%</th><th>상위 50%</th></tr></thead><tbody>${cRow(esc(r.label),cvA)}${R.length>1?cRow('전체 회차 누적',cvB):''}</tbody></table></div>`+
     `<div class="tbl"><table><thead><tr><th class="t">구매 회차 수</th><th>고객</th><th>누적 ${vL}</th><th>매출 비중</th><th>고객당 누적</th></tr></thead><tbody>`+
     grp.map((g,k)=>g?`<tr><td class="t">${gl[k]}</td><td>${nf(g.n)}명</td><td>${won(g.v)}</td><td>${pc(g.v/allV)}</td><td>${nf(g.v/g.n)}원</td></tr>`:'').join('')+`</tbody></table></div>`+
@@ -547,20 +569,21 @@ function render(){
   // 품목별
   const qMode=S.m==='q',itv=x=>qMode?x.single.map((v,i)=>v+x.setU[i]):(S.b==='sup'?x.itSup:x.itPay);
   const va=itv(a),vb=b?itv(b):null;
-  let rows=D.items.map((n,i)=>({n,i,v:va[i],s:qMode?a.setU[i]:0,c:vb?vb[i]:null})).filter(x=>S.items.has(x.i));
+  const live=i=>(a.single[i]+a.setU[i])>0||(b&&(b.single[i]+b.setU[i])>0);
+  let rows=V.items.map((n,i)=>({n,i,v:va[i],s:qMode?a.setU[i]:0,c:vb?vb[i]:null})).filter(x=>S.items.has(x.i)&&live(x.i));
   rows.sort((x,y)=>y.v-x.v);
   if(!qMode&&S.items.has(SET)){const sv=x=>x.sets*(S.b==='sup'?x.r.setSup:x.r.setPay);rows.push({n:SETN,i:SET,v:sv(a),s:sv(a),c:b?sv(b):null,isSet:1})}
   const mx=Math.max(1e-9,...rows.map(x=>Math.max(x.v,x.c||0)));
   $('#itCh').innerHTML=rows.length?rows.map(x=>{
     const w1=(x.v-x.s)/mx*100,w2=x.s/mx*100;
-    const tip=`<b>${esc(x.n)}</b>`+(qMode?`<div class="r"><span>단품</span><b>${nf(x.v-x.s)}</b></div><div class="r"><span>ALL세트분</span><b>${nf(x.s)}</b></div><div class="r"><span>합계</span><b>${nf(x.v)}</b></div>`:`<div class="r"><span>${r.label}</span><b>${won(x.v)}</b></div>`)+(x.c!=null?`<div class="r"><span>${cl}</span><b>${fmtM(x.c)}</b></div>`:'');
+    const tip=`<b>${esc(x.n)}</b>`+(qMode?(hasSet?`<div class="r"><span>단품</span><b>${nf(x.v-x.s)}</b></div><div class="r"><span>ALL세트분</span><b>${nf(x.s)}</b></div><div class="r"><span>합계</span><b>${nf(x.v)}</b></div>`:`<div class="r"><span>${esc(r.label)}</span><b>${nf(x.v)}</b></div>`):`<div class="r"><span>${r.label}</span><b>${won(x.v)}</b></div>`)+(x.c!=null?`<div class="r"><span>${cl}</span><b>${fmtM(x.c)}</b></div>`:'');
     return `<div class="hb"${tipAttr(tip)}><div class="hn">${esc(x.n)}</div><div class="ht">${w1>0?`<i style="width:${w1.toFixed(2)}%"></i>`:''}${w2>0?`<i class="s" style="width:${w2.toFixed(2)}%"></i>`:''}${x.c!=null?`<b style="left:calc(${(x.c/mx*100).toFixed(2)}% - 1px)"></b>`:''}</div><div class="hv">${fmtM(x.v)}</div><div class="hd2">${dPct(x.v,x.c)}</div></div>`}).join(''):'<div class="empty">선택한 품목이 없어요.</div>';
-  $('#itTtl').textContent=`품목별 판매 (${mLbl()})`;
-  const L=[['--accent',qMode?'단품':'단품 '+mLbl()],['--set',qMode?'ALL세트분':'ALL세트 (별도 행)']];
+  $('#itTtl').textContent=`품목별 판매 (${mLbl()})`;$('#heatNote').textContent=hasSet?'(팩, ALL세트분 포함)':'(팩)';
+  const L=hasSet?[['--accent',qMode?'단품':'단품 '+mLbl()],['--set',qMode?'ALL세트분':'ALL세트 (별도 행)']]:[['--accent',r.label]];
   $('#itLg').innerHTML=L.map(([c,t])=>`<span><i style="background:var(${c})"></i>${esc(t)}</span>`).join('')+(hasC?`<span><i style="background:var(--fg);opacity:.55;width:2px"></i>${esc(cl)} 실적</span>`:'');
 
   // 품목 × 일차
-  const hrows=D.items.map((n,i)=>({n,i,d:a.itemDay[i],t:a.itemDay[i].reduce((p,q)=>p+q,0)})).filter(x=>S.items.has(x.i)).sort((x,y)=>y.t-x.t);
+  const hrows=V.items.map((n,i)=>({n,i,d:a.itemDay[i],t:a.itemDay[i].reduce((p,q)=>p+q,0)})).filter(x=>S.items.has(x.i)&&x.t>0).sort((x,y)=>y.t-x.t);
   $('#heat').innerHTML=`<thead><tr><th class="t">품목</th>${[...Array(r.days)].map((_,i)=>`<th>${i+1}일차<small>${dayLabel(r,i)}</small></th>`).join('')}<th>합계</th><th>마지막 주문</th></tr></thead><tbody>`+
     hrows.map(x=>{const cut=r.cut[x.i],m=Math.max(1,...x.d);
       return `<tr><td class="t">${esc(x.n)}</td>`+x.d.map((v,di)=>{
@@ -569,8 +592,8 @@ function render(){
         `<td><b>${nf(x.t)}</b></td><td>${cut?`<span class="pill wn">${esc(r.last[x.i]||'')}</span>`:esc(r.last[x.i]||'–')}</td></tr>`}).join('')+
     `</tbody><tfoot><tr><td class="t">합계</td>${a.dayQ.map(v=>`<td>${nf(v)}</td>`).join('')}<td>${nf(a.packs)}</td><td></td></tr></tfoot>`;
   const notes=[];
-  D.items.forEach((n,i)=>{if(r.cut[i]&&S.items.has(i))notes.push(`<div class="w">${esc(n)}: ${esc(r.last[i])} 이후 단품 주문 없음${S.items.has(SET)&&D.setItems.includes(i)?' (이후 수량은 ALL세트분)':''}</div>`)});
-  r.notes.forEach(x=>{if(S.items.has(D.items.indexOf(x.item)))notes.push(`<div>${esc(x.item)}: ${esc(x.from)}부터 "${esc(x.opt)}" 옵션으로 ${nf(x.qty)}팩 판매</div>`)});
+  V.items.forEach((n,i)=>{if(r.cut[i]&&S.items.has(i))notes.push(`<div class="w">${esc(n)}: ${esc(r.last[i])} 이후 단품 주문 없음${S.items.has(SET)&&V.setItems.includes(i)?' (이후 수량은 ALL세트분)':''}</div>`)});
+  r.notes.forEach(x=>{if(S.items.has(V.items.indexOf(x.item)))notes.push(`<div>${esc(x.item)}: ${esc(x.from)}부터 "${esc(x.opt)}" 옵션으로 ${nf(x.qty)}팩 판매</div>`)});
   if(S.ct!=='all')notes.push('<div>주문이 끊긴 시점은 고객 필터와 무관하게 회차 전체 기준이에요.</div>');
   $('#heatNotes').innerHTML=notes.join('');
 
@@ -582,15 +605,15 @@ function render(){
   const H=(el,lgEl,key,B,unit,lo)=>{const s=[];if(hasC)s.push({name:cl,vals:hist(b[key],B),cmp:1});s.push({name:r.label,vals:hist(a[key],B)});
     cols(el,B.map(x=>({l:x[2],tip:x[2]+unit})),s,{fmt:v=>pc(v,0),cls:'sm dense',lo});
     const L=[['--accent',lo?`${r.label} ${FS} 이상`:r.label]];if(lo)L.push(['--set',`${r.label} ${FS} 미만`]);if(hasC)L.push(['--y-mid',cl]);lg(lgEl,L)};
-  H($('#hA'),$('#lgA'),'oPacks',BA,'팩');H($('#hB'),$('#lgB'),'oPay',BB,'',i=>BB[i][1]<=D.freeShip);H($('#hC'),$('#lgC'),'oKinds',BC,'');
+  H($('#hA'),$('#lgA'),'oPacks',BA,'팩');if(pr0)H($('#hB'),$('#lgB'),'oPay',BB,'',V.freeShip?i=>BB[i][1]<=V.freeShip:null);else{$('#hB').innerHTML='<div class="empty">가격표에 가격이 들어가면 표시돼요.</div>';$('#lgB').innerHTML=''}H($('#hC'),$('#lgC'),'oKinds',BC,'');
 
   // 고객
   const gN=agg(S.r,'new'),gR=agg(S.r,'rep');
   let ch='';
-  if(S.r===0){ch=`<div class="empty">첫 집계 회차(${esc(r.label)})라 이전 구매 이력이 없어요. 다음 회차부터 신규·재구매가 나뉘어요.</div>`}
+  if(r.first){ch=`<div class="empty">첫 집계 회차(${esc(r.label)})라 이전 구매 이력이 없어요. 다음 회차부터 신규·재구매가 나뉘어요.</div>`}
   else{
-    const pv=R[S.r-1];let back=0;pv.custs.forEach(c=>{if(r.custs.has(c))back++});
-    const row=(t,g)=>`<tr><td class="t">${t}</td><td>${nf(g.custs.size)}</td><td>${nf(g.orders)}</td><td>${isFinite(g.avgPacks)?g.avgPacks.toFixed(1):'–'}</td><td>${isFinite(g.aov)?nf(g.aov):'–'}</td><td>${won(S.b==='sup'?g.sup:g.pay)}</td></tr>`;
+    const pi=prevOf(S.r),pv=pi>=0?R[pi]:RV[RV.indexOf(r)-1];let back=0;pv.custs.forEach(c=>{if(r.custs.has(c))back++});
+    const row=(t,g)=>`<tr><td class="t">${t}</td><td>${nf(g.custs.size)}</td><td>${nf(g.orders)}</td><td>${isFinite(g.avgPacks)?g.avgPacks.toFixed(1):'–'}</td><td>${isFinite(g.aov)&&pr0?nf(g.aov):'–'}</td><td>${pr0?won(S.b==='sup'?g.sup:g.pay):'–'}</td></tr>`;
     ch=`<div class="say">${esc(pv.label)} 고객 <b>${nf(pv.custs.size)}명</b> 중 <b>${nf(back)}명</b>이 ${esc(r.label)} 회차에 다시 구매했어요. 복귀율 <b>${pc(back/pv.custs.size)}</b></div>
     <div class="tbl" style="margin-top:8px"><table><thead><tr><th class="t" style="min-width:64px">구분</th><th>고객</th><th>주문</th><th>주문당 팩</th><th>객단가</th><th>${S.b==='sup'?'올계 매출':'결제액'}</th></tr></thead><tbody>${row('신규',gN)}${row('재구매',gR)}</tbody></table></div>
     <div class="note" style="margin-top:8px">재구매는 이전 집계 회차에 구매 이력이 있는 고객이에요. 품목 필터가 걸리면 해당 품목을 산 고객만 셉니다.</div>`}
@@ -598,29 +621,37 @@ function render(){
 
   // 품목 상세
   const aK=S.b==='sup'?'itSup':'itPay',aL=S.b==='sup'?'올계 매출':'결제액',tot=a.packs||1;
-  const trs=D.items.map((n,i)=>({n,i,t:a.single[i]+a.setU[i]})).filter(x=>S.items.has(x.i)).sort((x,y)=>y.t-x.t).map(x=>{const i=x.i;
+  const trs=V.items.map((n,i)=>({n,i,t:a.single[i]+a.setU[i]})).filter(x=>S.items.has(x.i)&&live(x.i)).sort((x,y)=>y.t-x.t).map(x=>{const i=x.i;
     const pb=b?b.single[i]+b.setU[i]:null;
-    return `<tr><td class="t" style="min-width:84px">${esc(x.n)}</td><td>${nf(a.single[i])}</td><td>${a.setU[i]?nf(a.setU[i]):'–'}</td><td><b>${nf(x.t)}</b></td><td>${pc(x.t/tot)}</td><td>${a.orders?pc(a.itemOrd[i]/a.orders):'–'}</td>${hasC?`<td>${dPct(x.t,pb)||'–'}</td>`:''}<td>${won(a[aK][i])}</td></tr>`}).join('');
+    return `<tr><td class="t" style="min-width:84px">${esc(x.n)}</td>${hasSet?`<td>${nf(a.single[i])}</td><td>${a.setU[i]?nf(a.setU[i]):'–'}</td>`:''}<td><b>${nf(x.t)}</b></td><td>${pc(x.t/tot)}</td><td>${a.orders?pc(a.itemOrd[i]/a.orders):'–'}</td>${hasC?`<td>${dPct(x.t,pb)||'–'}</td>`:''}<td>${won(a[aK][i])}</td></tr>`}).join('');
   const setAmt=a.sets*(S.b==='sup'?r.setSup:r.setPay);
   const setTr=S.items.has(SET)?`<tr class="setrow"><td class="t">${esc(SETN)}<span>${NS}종 각 1팩 · 금액은 세트가</span></td><td>${nf(a.sets)}세트</td><td>–</td><td>–</td><td>–</td><td>${a.orders?pc(a.itemOrd[SET]/a.orders):'–'}</td>${hasC?`<td>${dPct(a.sets,b.sets)||'–'}</td>`:''}<td>${won(setAmt)}</td></tr>`:'';
-  $('#itTbl').innerHTML=`<thead><tr><th class="t">품목</th><th>단품</th><th>ALL세트분</th><th>합계(팩)</th><th>비중</th><th>주문 포함률</th>${hasC?`<th>${esc(cl)} 대비</th>`:''}<th>${aL}</th></tr></thead><tbody>${trs}${setTr}</tbody>`+
-    `<tfoot><tr><td class="t">합계</td><td>${nf(a.single.reduce((p,q)=>p+q,0))}</td><td>${nf(a.setU.reduce((p,q)=>p+q,0))}</td><td>${nf(a.packs)}</td><td></td><td></td>${hasC?`<td>${dPct(a.packs,b.packs)}</td>`:''}<td>${won(S.b==='sup'?a.sup:a.pay)}</td></tr></tfoot>`;
+  $('#itTbl').innerHTML=`<thead><tr><th class="t">품목</th>${hasSet?'<th>단품</th><th>ALL세트분</th>':''}<th>${hasSet?'합계(팩)':'판매 팩'}</th><th>비중</th><th>주문 포함률</th>${hasC?`<th>${esc(cl)} 대비</th>`:''}<th>${aL}</th></tr></thead><tbody>${trs}${setTr}</tbody>`+
+    `<tfoot><tr><td class="t">합계</td>${hasSet?`<td>${nf(a.single.reduce((p,q)=>p+q,0))}</td><td>${nf(a.setU.reduce((p,q)=>p+q,0))}</td>`:''}<td>${nf(a.packs)}</td><td></td><td></td>${hasC?`<td>${dPct(a.packs,b.packs)}</td>`:''}<td>${won(S.b==='sup'?a.sup:a.pay)}</td></tr></tfoot>`;
 
-  $('#foot').innerHTML=`집계 기준 · 단품 체제로 전환한 ${esc(R[0].label)} 회차부터 집계해요. · 취소·반품(부분 반품 포함)은 모든 수치에서 빼고, 교환은 판매로 셉니다. · 금액은 수량 × 가격표로 계산해 쿠폰·배송비는 반영되지 않아요. · ${esc(SETN)}는 수량을 구성 ${NS}종에 1팩씩 더하고, 금액은 세트가로 따로 잡아요. · 주문당 팩 수·결제액·품목 종류 수와 객단가는 품목 필터와 무관하게 주문 전체 기준이에요. 품목 종류 수에서 ${esc(SETN)}는 1종으로 세요. · 고객은 이름·ID를 가린 고객키로만 구분해요.`;
+  $('#foot').innerHTML=`집계 기준 · ${esc(V.name)}는 ${esc(RV[0].label)} 회차부터 집계해요. · 취소·반품(부분 반품 포함)은 모든 수치에서 빼고, 교환은 판매로 셉니다. · 금액은 수량 × 가격표로 계산해 쿠폰·배송비는 반영되지 않아요.${hasSet?` · ${esc(SETN)}는 수량을 구성 ${NS}종에 1팩씩 더하고, 금액은 세트가로 따로 잡아요.`:''} · 주문당 팩 수·결제액·품목 종류 수와 객단가는 품목 필터와 무관하게 주문 전체 기준이에요. ${hasSet?`품목 종류 수에서 ${esc(SETN)}는 1종으로 세요.`:''} · 고객은 이름·ID를 가린 고객키로만 구분해요.`;
 }
 
 /* ---------- 초기화 · 이벤트 ---------- */
-$('#fRound').innerHTML=R.map((r,i)=>`<option value="${i}">${esc(r.label)}</option>`).join('');
+function fillRound(){$('#fRound').innerHTML=R.map((r,i)=>`<option value="${i}">${esc(r.label)}</option>`).join('')}
 function fillCmp(){$('#fCmp').innerHTML='<option value="-1">없음</option>'+R.map((r,i)=>i===S.r?'':`<option value="${i}">${esc(r.label)}</option>`).join('')}
-$('#fIt').innerHTML=NAMES.map((n,i)=>`<button type="button" class="chip${i===SET?' set':''}" data-i="${i}">${esc(n)}</button>`).join('');
-fillCmp();
-$('#fRound').addEventListener('change',e=>{S.r=+e.target.value;S.c=S.r-1;fillCmp();render()});
+function setInf(n){INF=n;R=INF?RV.filter(r=>r.inf===INF):RV;const it=S.items;S=freshS(S);S.items=it;fillRound();fillCmp()}
+function mount(vi){VI=vi;V=DATA.vendors[vi];INF='';prep();R=RV;S=freshS(S);
+  $('#fIt').innerHTML=NAMES.map((n,i)=>`<button type="button" class="chip${i===SET?' set':''}" data-i="${i}">${esc(n)}</button>`).join('');
+  const infs=V.infs||[];$('#fInfWrap').hidden=infs.length<1;
+  $('#fInf').innerHTML='<button type="button" class="chip" data-inf="">전체</button>'+infs.map(n=>`<button type="button" class="chip" data-inf="${esc(n)}">${esc(n)}</button>`).join('');
+  $('#vendSeg').hidden=DATA.vendors.length<2;
+  $('#vendSeg').innerHTML=DATA.vendors.map((v,i)=>`<button type="button" data-v="${i}" aria-pressed="${i===vi}">${esc(v.name)}</button>`).join('');
+  fillRound();fillCmp()}
+$('#fRound').addEventListener('change',e=>{S.r=+e.target.value;S.c=prevOf(S.r);fillCmp();render()});
 $('#fCmp').addEventListener('change',e=>{S.c=+e.target.value;render()});
 document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||t.disabled)return;const d=t.dataset;
   if(d.view){if(typeof setView==='function')setView(d.view);return}
+  if('v' in d){mount(+d.v);render();return}
+  if('inf' in d){setInf(d.inf);render();return}
   if(d.m){S.m=d.m}else if(d.b){S.b=d.b}else if(d.c){S.ct=d.c}else if(d.d){S.d=d.d}
   else if(d.i!=null&&t.classList.contains('chip')){const i=+d.i;S.items.has(i)?S.items.delete(i):S.items.add(i)}
-  else if(t.id==='fReset'){S.r=R.length-1;S.c=R.length-2;S.m='q';S.b='sup';S.ct='all';S.d='day';S.items=new Set(NAMES.map((_,i)=>i));fillCmp()}
+  else if(t.id==='fReset'){INF='';R=RV;S=freshS(null);fillRound();fillCmp()}
   else return;
   render()});
 $('#fItAll').addEventListener('change',e=>{S.items=e.target.checked?new Set(NAMES.map((_,i)=>i)):new Set();render()});
@@ -639,7 +670,7 @@ function logInit(){ if(AUTH.role!=='admin') return; G('vSeg').hidden=false; G('l
   for(const id of ['aPend','aList']) G(id).onclick=accClick;
   accLoad();
   if(AUTH.sheetUrl) G('lSheet').href=AUTH.sheetUrl; else G('lSheet').hidden=true;
-  G('lMeta').innerHTML=`<span>마지막 반영 <b>${esc(D.builtAt||'-')}</b></span><span>회차 <b>${R.length}</b>개 (${esc(R.map(r=>r.label).join(', '))})</span><span>주문 <b>${nf(R.reduce((p,r)=>p+r.orders.length,0))}</b>건</span><span>품목 <b>${D.items.length}</b>종</span>`; }
+  G('lMeta').innerHTML=`<span>마지막 반영 <b>${esc(DATA.builtAt||'-')}</b></span>`+DATA.vendors.map(v=>`<span>${esc(v.name)} <b>${v.rounds.length}</b>회차 · 주문 <b>${nf(v.rounds.reduce((p,r)=>p+r.orders.length,0))}</b>건</span>`).join(''); }
 async function logRender(){
   G('periodLbl').textContent='관리자 전용'; accLoad();
   G('lTable').innerHTML='<tbody><tr><td class="empty">불러오는 중…</td></tr></tbody>';
@@ -680,7 +711,7 @@ let view='dash';
 function setView(v){ view=(v==='log'&&AUTH.role==='admin')?'log':'dash'; G('vDash').hidden=view!=='dash'; G('vLog').hidden=view!=='log';
   $$('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view===view)); if(view==='log') logRender(); else render(); }
 
-logInit(); setView('dash');
+mount(0); logInit(); setView('dash');
 }
 // ================= 로그인 / 권한요청 / 데이터 받기 =================
 const API_URL='https://script.google.com/macros/s/AKfycbzOFeR6FjfvIoXLWjmEcEaQ2-AVq-TctIPujE48puRiOpqLQohnRuTR9LuEGOfJCi2TbQ/exec';
@@ -689,6 +720,7 @@ async function api(body){
   const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'});
   return r.json();
 }
+const hasData=d=>!!d&&((d.vendors&&d.vendors.length)||(d.rounds&&d.rounds.length));
 function enter(auth,D){
   document.getElementById('gate').hidden=true; document.getElementById('app').hidden=false;
   const w=document.getElementById('whoLbl'); w.textContent='';
@@ -725,7 +757,7 @@ function enter(auth,D){
     busy(true,'확인 중…');
     try{ const res=await api({action:'login',name,pw});
       if(!res.ok){ busy(false); err.textContent=res.msg||'이름 또는 비밀번호가 맞지 않습니다.'; g('gPw').value=''; g('gPw').focus(); return; }
-      if(!res.data||!res.data.rounds||!res.data.rounds.length){ busy(false); noData(res); return; }
+      if(!hasData(res.data)){ busy(false); noData(res); return; }
       const auth={name,role:res.role,token:res.token,sheetUrl:res.sheetUrl||''};
       try{ sessionStorage.setItem(SS,JSON.stringify(auth)); }catch(e2){}
       enter(auth,res.data); }
@@ -735,7 +767,7 @@ function enter(auth,D){
   let saved=null; try{ saved=JSON.parse(sessionStorage.getItem(SS)||'null'); }catch(e){}
   if(saved&&saved.token){ busy(true,'데이터를 불러오는 중…'); g('gName').value=saved.name||'';
     api({action:'data',token:saved.token}).then(res=>{ busy(false);
-      if(res.ok&&res.data&&res.data.rounds&&res.data.rounds.length){ saved.role=res.role; saved.sheetUrl=res.sheetUrl||''; enter(saved,res.data); }
+      if(res.ok&&hasData(res.data)){ saved.role=res.role; saved.sheetUrl=res.sheetUrl||''; enter(saved,res.data); }
       else { drop(); if(res.ok) noData(res); else err.textContent=res.msg||''; g('gPw').focus(); } })
     .catch(()=>{ busy(false); err.textContent='접속 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.'; }); }
   else g('gName').focus();
