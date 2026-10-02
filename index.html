@@ -163,6 +163,13 @@ td.setrow,tr.setrow td{background:var(--set-soft)}
 .row.wide{grid-template-columns:minmax(0,1fr) minmax(0,1.7fr)}
 .row.mid{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}
 #tip{position:fixed;left:0;top:0}
+.allr{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:24px;align-items:center}
+.allc{display:grid;gap:10px;min-width:0}
+.hb.three{grid-template-columns:78px minmax(0,1fr) 62px}
+.hb .ht i.f{background:var(--y-mid);border-radius:0 3px 3px 0}
+#allTbl th.t,#allTbl td.t{min-width:76px}
+#allTbl tr.cur td{background:var(--accent-soft);font-weight:600}
+@media (max-width:760px){.allr{grid-template-columns:minmax(0,1fr);gap:14px}.hb.three{grid-template-columns:66px minmax(0,1fr) 56px}}
 @media (max-width:1100px){.row.wide,.row.mid{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:760px){.row.even{grid-template-columns:minmax(0,1fr)}.cols.dense .bv{display:none}.cols{height:200px}.hb{grid-template-columns:66px minmax(0,1fr) 52px 58px;gap:6px}}
 html{color-scheme:light} body{margin:0} img{max-width:100%}
@@ -251,6 +258,14 @@ td.pwc{font-family:var(--f-num);text-align:left}
     <div class="note" id="hrNote"></div>
   </section>
 </div>
+
+<section class="card">
+  <div class="hd"><h2>전체 회차 지표 <span class="note">(원)</span></h2><span class="note">필터와 무관하게 회차 전체 기준</span></div>
+  <div class="allr">
+    <div class="tbl"><table id="allTbl"></table></div>
+    <div class="allc"><div class="legend" id="allLg"></div><div class="hbs" id="allCh"></div></div>
+  </div>
+</section>
 
 <div class="row mid">
   <section class="card">
@@ -461,6 +476,16 @@ function render(){
   lg($('#hrLg'),hasC?[['--accent',r.label],['--y-mid',cl]]:[['--accent',r.label]]);
   const tot1=hv(a).reduce((p,q)=>p+q,0),first=hv(a)[h0]||0;
   $('#hrNote').textContent=tot1?`가로축은 시각(시). 오픈 첫 1시간(${h0}시대)에 1일차 판매의 ${pc(first/tot1,0)}가 나갔어요.`+(S.m!=='q'?' 막대에 올리면 금액이 보여요.':''):'';
+
+  // 전체 회차 지표 (필터와 무관)
+  const AR=R.map(x=>({l:x.label,pay:x.orders.reduce((p,o)=>p+o.pay,0),sup:x.orders.reduce((p,o)=>p+o.sup,0)}));
+  const tp=AR.reduce((p,x)=>p+x.pay,0),ts=AR.reduce((p,x)=>p+x.sup,0),amx=Math.max(1,...AR.map(x=>x.pay));
+  $('#allTbl').innerHTML='<thead><tr><th class="t">회차</th><th>결제액</th><th>매출액</th><th>수수료</th></tr></thead><tbody>'+
+    AR.map((x,i)=>`<tr${i===S.r?' class="cur"':''}><td class="t">${esc(x.l)}</td><td>${nf(x.pay)}</td><td>${nf(x.sup)}</td><td>${nf(x.pay-x.sup)}</td></tr>`).join('')+
+    `</tbody><tfoot><tr><td class="t">합계</td><td>${nf(tp)}</td><td>${nf(ts)}</td><td>${nf(tp-ts)}</td></tr></tfoot>`;
+  $('#allCh').innerHTML=AR.map(x=>{const tip=`<b>${esc(x.l)}</b><div class="r"><span>결제액</span><b>${nf(x.pay)}</b></div><div class="r"><span>매출액</span><b>${nf(x.sup)}</b></div><div class="r"><span>수수료</span><b>${nf(x.pay-x.sup)}</b></div>`;
+    return `<div class="hb three"${tipAttr(tip)}><div class="hn">${esc(x.l)}</div><div class="ht"><i style="width:${(x.sup/amx*100).toFixed(2)}%"></i><i class="f" style="width:${((x.pay-x.sup)/amx*100).toFixed(2)}%"></i></div><div class="hv">${won(x.pay)}</div></div>`}).join('');
+  lg($('#allLg'),[['--accent','매출액'],['--y-mid','수수료'],]);
 
   // 품목별
   const qMode=S.m==='q',itv=x=>qMode?x.single.map((v,i)=>v+x.setU[i]):(S.b==='sup'?x.itSup:x.itPay);
