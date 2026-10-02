@@ -542,10 +542,10 @@ function render(){
   else if(hasC&&a.orders&&b.orders){
     const V1=a[vk],V0=b[vk],N1=a.orders,N0=b.orders,A1=V1/N1,A0=V0/N0,eN=(N1-N0)*(A0+A1)/2,eA=(A1-A0)*(N0+N1)/2,mid=V0+eN,mx2=Math.max(V0,V1,mid,1);
     const bar=(l,f,t,c,txt,tc)=>`<div class="hb wf"><div class="hn">${esc(l)}</div><div class="ht"><i class="${c}" style="margin-left:${(Math.min(f,t)/mx2*100).toFixed(2)}%;width:${Math.max(0.4,Math.abs(t-f)/mx2*100).toFixed(2)}%"></i></div><div class="hv ${tc||''}">${txt}</div></div>`;
-    const ec=v=>v>0?'up':v<0?'dn':'c';
-    dh+=`<div class="say">${esc(cl)} 대비 ${vL} <b>${sg(V1-V0)}</b> (${(V1>V0?'+':V1<V0?'−':'')+Math.abs((V1-V0)/V0*100).toFixed(1)}%). 주문 수 <b>${nf(N0)}건 → ${nf(N1)}건</b>, 주문당 ${vL} <b>${nf(A0)}원 → ${nf(A1)}원</b></div>`+
-      `<div class="hbs">${bar(cl,0,V0,'c',won(V0))}${bar('주문 수 효과',V0,mid,ec(eN),sg(eN),ec(eN))}${bar('주문당 매출 효과',mid,V1,ec(eA),sg(eA),ec(eA))}${bar(r.label,0,V1,'',won(V1))}</div>`+
-      `<div class="note">주문 수 효과는 주문 건수가 달라져 생긴 차이, 주문당 매출 효과는 한 주문의 금액이 달라져 생긴 차이예요. 둘을 더하면 전체 증감과 같아요.</div>`;
+    const ec=v=>v>0?'up':v<0?'dn':'c',dir=v=>Math.round(v)>0?'증가':Math.round(v)<0?'감소':'변동 없음';
+    dh+=`<div class="say">${esc(cl)} 대비 ${vL} <b>${sg(V1-V0)}</b> (${(V1>V0?'+':V1<V0?'−':'')+Math.abs((V1-V0)/V0*100).toFixed(1)}%). 객수 <b>${nf(N0)}건 → ${nf(N1)}건</b>, 객단가(${vL} 기준) <b>${nf(A0)}원 → ${nf(A1)}원</b></div>`+
+      `<div class="hbs">${bar(cl,0,V0,'c',won(V0))}${bar('객수 '+dir(eN),V0,mid,ec(eN),sg(eN),ec(eN))}${bar('객단가 '+dir(eA),mid,V1,ec(eA),sg(eA),ec(eA))}${bar(r.label,0,V1,'',won(V1))}</div>`+
+      `<div class="note">객수는 주문 건수, 객단가는 주문 1건당 ${vL}이에요. 객수와 객단가 증감을 더하면 전체 증감과 같아요.</div>`;
   }else dh+=`<div class="empty">${noHist?'첫 회차는 이전 이력이 없어 고객 필터를 건 상태로는 비교할 수 없어요.':'비교 회차를 고르면 증감 요인이 나와요.'}</div>`;
   if(r.first)dh+=`<div class="note">첫 집계 회차라 신규·재구매 고객 매출은 나뉘지 않아요.</div>`;
   else if(pr0){
