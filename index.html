@@ -230,6 +230,39 @@ td.pwc{font-family:var(--f-num);text-align:left}
 .sch .s1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14.5px}
 .sch .s2{font-variant-numeric:tabular-nums;color:var(--fg)}
 .sch .s3{font-size:13px;color:var(--fg2)}
+.ntcbox.wide{width:min(960px,100%)}
+.ntcbody{max-height:min(72vh,640px)}
+.schgrid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:22px;align-items:start}
+.schgrid.solo{grid-template-columns:minmax(0,1fr)}
+.calwrap{display:grid;gap:10px;min-width:0;position:relative}
+.calnav{position:absolute;top:-2px;right:0;display:flex;gap:4px}
+.calbtn{font:inherit;font-size:12px;width:28px;height:26px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg2);cursor:pointer}
+.calbtn:disabled{opacity:.35;cursor:default}
+.months{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.cal{min-width:0}
+.cal h3{font-size:14px;font-weight:700;margin:0 0 8px}
+.cdow,.cwk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.cdow span{font-size:11px;color:var(--muted);text-align:center;padding-bottom:4px}
+.cdow .sun,.cday.sun{color:var(--bad)} .cdow .sat,.cday.sat{color:var(--s1)}
+.cwk{border-top:1px solid var(--grid);padding:3px 0 5px;row-gap:2px;min-height:44px;align-content:start}
+.cday{grid-row:1;font-size:12px;text-align:center;font-variant-numeric:tabular-nums;color:var(--fg);line-height:20px;height:20px}
+.cday.gone{opacity:.45}
+.cday.today{font-weight:700;color:var(--panel);background:var(--fg);border-radius:999px;width:22px;justify-self:center}
+.cbar{--vc:var(--y-mid);font:inherit;font-size:11px;font-weight:600;line-height:17px;height:17px;padding:0 5px;margin:0 1px;border:0;border-left:3px solid var(--vc);background:color-mix(in srgb,var(--vc) 24%,var(--panel));color:var(--fg);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;min-width:0}
+.cbar:not(.cs){border-left-width:0;margin-left:0;padding-left:8px} .cbar.cs{border-radius:4px 0 0 4px} .cbar.ce{border-radius:0 4px 4px 0} .cbar.cs.ce{border-radius:4px} .cbar:not(.ce){margin-right:0}
+.cbar.done{background:var(--grid);color:var(--muted);font-weight:500}
+.cbar.hl{outline:2px solid var(--fg);outline-offset:-1px;position:relative;z-index:1}
+.cbar:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cmore{font-size:10.5px;color:var(--muted);padding-left:4px;line-height:14px}
+.schlist{min-width:0}
+.schlist h4{font-size:12px;font-weight:600;color:var(--muted);margin:14px 0 6px;letter-spacing:.02em}
+.schlist ul.sch{list-style:none;margin:0;padding:0;display:grid;gap:10px;font-size:14px;line-height:1.6}
+.sch li{cursor:pointer;border-radius:6px;padding:2px 4px;margin:-2px -4px}
+.sch li.hl{background:var(--accent-soft)}
+.sch li.done{color:var(--fg2)}
+.sch .sw{display:inline-block;width:9px;height:9px;border-radius:2px;flex:none}
+.sch .s3.ov{color:var(--warn)}
+@media (max-width:760px){.schgrid{grid-template-columns:minmax(0,1fr)}.months{grid-template-columns:minmax(0,1fr)}.months .cal:nth-child(2){display:none}}
 </style>
 </head><body>
 <div class="gate" id="gate">
@@ -767,52 +800,107 @@ const hasData=d=>!!d&&((d.vendors&&d.vendors.length)||(d.rounds&&d.rounds.length
 // 다음 공구 일정이 있으면 로그인할 때마다 한 번 뜨고, 일정이 없으면 아직 안 본 공지가 있을 때만 뜹니다.
 const NKEY='olkye-gg-notice-seen', PKEY='olkye-gg-popup-shown';
 function showPopup(P,auth,force){
-  const S=(P&&P.schedule)||[], N=P&&P.notice&&P.notice.lines&&P.notice.lines.length?P.notice:null;
-  if(!S.length&&!N) return;
+  const WD=['일','월','화','수','목','금','토'], VC=['--accent','--set','--s3','--s7','--s5','--s2'];
+  const D0=iso=>new Date(iso+'T00:00:00Z'), ISO=d=>d.toISOString().slice(0,10), md=iso=>{ const d=D0(iso); return (d.getUTCMonth()+1)+'/'+d.getUTCDate()+'('+WD[d.getUTCDay()]+')'; };
+  const today=ISO(new Date(Date.now()+9*3600e3));
+  const ALL=((P&&P.schedule)||[]).map((s,k)=>Object.assign({k},s)), E=ALL.filter(s=>s.start), LOOSE=ALL.filter(s=>!s.start);
+  const UP=E.filter(s=>s.end>=today), DONE=E.filter(s=>s.end<today);
+  const N=P&&P.notice&&P.notice.lines&&P.notice.lines.length?P.notice:null;
+  if(!ALL.length&&!N) return;
   let seen='', shown=''; try{ seen=localStorage.getItem(NKEY)||''; shown=sessionStorage.getItem(PKEY)||''; }catch(e){}
-  const unseen=!!N&&seen!==N.ver;
-  if(!force&&(shown===auth.token||!(S.length||unseen))) return;
+  const unseen=!!N&&seen!==N.ver, upcoming=UP.length+LOOSE.length;
+  if(!force&&(shown===auth.token||!(upcoming||unseen))) return;
   const el=(t,c,x)=>{ const e=document.createElement(t); if(c) e.className=c; if(x!=null) e.textContent=x; return e; };
+  const who=s=>[s.vendor,s.inf].filter(Boolean).join(' · ')||'공구';
+  const vnames=[]; ((P&&P.vendors)||[]).concat(ALL.map(s=>s.vendor)).forEach(v=>{ if(v&&vnames.indexOf(v)<0) vnames.push(v); });
+  const vcol=v=>'var('+VC[Math.max(0,vnames.indexOf(v))%VC.length]+')';
   const old=document.getElementById('ntc'); if(old) old.remove();
   const m=el('div','ntc'); m.id='ntc'; m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true'); m.setAttribute('aria-label','공구일정과 공지사항');
-  const box=el('div','ntcbox'), x=el('button','ntcx','×'); x.type='button'; x.setAttribute('aria-label','닫기');
+  const box=el('div','ntcbox'+(E.length?' wide':'')), x=el('button','ntcx','×'); x.type='button'; x.setAttribute('aria-label','닫기');
   const seg=el('span','seg ntcseg'); seg.setAttribute('role','group'); seg.setAttribute('aria-label','팝업 내용 선택');
   const bS=el('button',null,'공구일정'), bN=el('button',null,'공지사항'); bS.type=bN.type='button'; seg.append(bS,bN);
   const dot=el('i','ntcdot'); dot.hidden=!unseen; bN.append(dot);
   const body=el('div','ntcbody'); box.append(x,seg,body); m.append(box); document.body.append(m);
-  const WD=['일','월','화','수','목','금','토'], D0=iso=>new Date(iso+'T00:00:00Z'), md=iso=>{ const d=D0(iso); return (d.getUTCMonth()+1)+'/'+d.getUTCDate()+'('+WD[d.getUTCDay()]+')'; };
-  const today=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
-  function draw(tab){
-    bS.setAttribute('aria-pressed',tab==='sch'); bN.setAttribute('aria-pressed',tab==='ntc'); body.textContent='';
-    if(tab==='sch'){
-      body.append(el('h2',null,'다음 공구 일정'));
-      if(!S.length){ body.append(el('p','ntcempty','예정된 공구 일정이 없습니다.')); return; }
-      const ol=el('ol','sch');
-      S.forEach(s=>{ const li=el('li'), top=el('div','s1');
-        top.append(el('b',null,[s.vendor,s.inf].filter(Boolean).join(' · ')||'공구'));
-        if(s.start){ const dd=Math.round((D0(s.start)-D0(today))/864e5); top.append(el('span','pill '+(dd<=0?'up':'nt'),dd<=0?'진행 중':'D-'+dd)); }
-        li.append(top, el('div','s2', s.start?(s.end&&s.end!==s.start?md(s.start)+' ~ '+md(s.end):md(s.start)):(s.text||'일정 미정')));
-        if(s.items) li.append(el('div','s3','품목: '+s.items));
-        if(s.memo) li.append(el('div','s3',s.memo));
-        ol.append(li); });
-      body.append(ol);
-    }else{
-      if(!N){ body.append(el('h2',null,'공지사항'), el('p','ntcempty','등록된 공지사항이 없습니다.')); return; }
-      body.append(el('h2',null,'[ '+N.ver+' 업데이트 안내 ]'));
-      const ol=el('ol'); N.lines.forEach(t=>ol.append(el('li',null,t))); body.append(ol);
-      dot.hidden=true; try{ localStorage.setItem(NKEY,N.ver); }catch(e){}       // 공지사항을 실제로 열어 봤을 때만 읽은 것으로 기록
+
+  // ----- 달력: 이번 달부터 2개월. 겹치는 공구는 줄을 쌓아 그립니다.
+  const t0=D0(today), minM=t0.getUTCFullYear()*12+t0.getUTCMonth(), lastM=E.reduce((p,s)=>{ const d=D0(s.end); return Math.max(p,d.getUTCFullYear()*12+d.getUTCMonth()); },minM);
+  let baseM=minM, picked=-1;
+  function month(ym){
+    const y=Math.floor(ym/12), mo=ym%12, dim=new Date(Date.UTC(y,mo+1,0)).getUTCDate(), lead=new Date(Date.UTC(y,mo,1)).getUTCDay(), iso=d=>ISO(new Date(Date.UTC(y,mo,d)));
+    const w=el('div','cal'); w.append(el('h3',null,y+'년 '+(mo+1)+'월'));
+    const dow=el('div','cdow'); WD.forEach((d,i)=>dow.append(el('span',i===0?'sun':i===6?'sat':null,d))); w.append(dow);
+    for(let day=1-lead; day<=dim; day+=7){
+      const wk=el('div','cwk'), ws=Math.max(day,1), we=Math.min(day+6,dim), isoS=iso(ws), isoE=iso(we);
+      for(let i=0;i<7;i++){ const d=day+i, ok=d>=1&&d<=dim, c=el('span','cday',ok?d:''); c.style.gridColumn=i+1;
+        if(ok){ const t=iso(d); if(t===today) c.classList.add('today'); else if(t<today) c.classList.add('gone'); if(i===0) c.classList.add('sun'); if(i===6) c.classList.add('sat'); }
+        wk.append(c); }
+      const lanes=[]; let over=0, overCol=8;
+      E.filter(s=>s.start<=isoE&&s.end>=isoS).sort((p,q)=>p.start<q.start?-1:p.start>q.start?1:(p.end>q.end?-1:1)).forEach(s=>{
+        const a=s.start>isoS?s.start:isoS, b=s.end<isoE?s.end:isoE, c1=D0(a).getUTCDay()+1, c2=D0(b).getUTCDay()+1;
+        let L=lanes.findIndex(v=>v<a); if(L<0){ L=lanes.length; lanes.push(''); } lanes[L]=b;
+        if(L>=3){ over++; overCol=Math.min(overCol,c1); return; }
+        const past=s.end<today, bar=el('button','cbar'+(past?' done':'')+(a===s.start?' cs':'')+(b===s.end?' ce':'')+(s.k===picked?' hl':''),s.inf||s.vendor||'공구'); bar.type='button'; bar.dataset.k=s.k;
+        bar.style.gridColumn=c1+' / '+(c2+1); bar.style.gridRow=L+2; if(!past) bar.style.setProperty('--vc',vcol(s.vendor));
+        bar.title=who(s)+' · '+md(s.start)+(s.end!==s.start?' ~ '+md(s.end):'')+(s.items?' · '+s.items:'')+(past?' (종료)':'');
+        wk.append(bar); });
+      if(over){ const more=el('span','cmore','+'+over+'건'); more.style.gridColumn=overCol+' / 8'; more.style.gridRow=5; wk.append(more); }
+      w.append(wk);
     }
+    return w;
+  }
+  function overlaps(s){ const out=[]; E.forEach(o=>{ if(o.k===s.k) return; const a=o.start>s.start?o.start:s.start, b=o.end<s.end?o.end:s.end; if(a<=b) out.push('겹침: '+who(o)+' ('+md(a)+(a!==b?' ~ '+md(b):'')+', '+(Math.round((D0(b)-D0(a))/864e5)+1)+'일)'); }); return out; }
+  function item(s,done){ const li=el('li',(done?'done':'')+(s.k===picked?' hl':'')), top=el('div','s1'); li.dataset.k=s.k;
+    const sw=el('i','sw'); sw.style.background=done?'var(--y-mid)':vcol(s.vendor); top.append(sw,el('b',null,who(s)));
+    if(s.start&&!done){ const dd=Math.round((D0(s.start)-D0(today))/864e5); top.append(el('span','pill '+(dd<=0?'up':'nt'),dd<=0?'진행 중':'D-'+dd)); }
+    if(done) top.append(el('span','pill nt','종료'));
+    li.append(top, el('div','s2', s.start?(s.end!==s.start?md(s.start)+' ~ '+md(s.end):md(s.start)):(s.text||'일정 미정')));
+    if(s.items) li.append(el('div','s3','품목: '+s.items));
+    if(s.memo) li.append(el('div','s3',s.memo));
+    if(s.start&&!done) overlaps(s).forEach(t=>li.append(el('div','s3 ov',t)));
+    return li; }
+  function drawSch(){
+    body.textContent='';
+    const grid=el('div','schgrid'+(E.length?'':' solo'));
+    if(E.length){
+      const left=el('div','calwrap'), nav=el('div','calnav'), pv=el('button','calbtn','◀'), nx=el('button','calbtn','▶'); pv.type=nx.type='button';
+      pv.setAttribute('aria-label','이전 달'); nx.setAttribute('aria-label','다음 달'); pv.disabled=baseM<=minM; nx.disabled=baseM+1>=lastM;
+      pv.onclick=()=>{ baseM--; drawSch(); }; nx.onclick=()=>{ baseM++; drawSch(); };
+      const months=el('div','months'); months.append(month(baseM),month(baseM+1)); nav.append(pv,nx);
+      const lgd=el('div','legend'); vnames.filter(v=>E.some(s=>s.vendor===v)).forEach(v=>{ const sp=el('span'), i=el('i'); i.style.background=vcol(v); sp.append(i,document.createTextNode(v)); lgd.append(sp); });
+      if(DONE.length){ const sp=el('span'), i=el('i'); i.style.background='var(--y-mid)'; sp.append(i,document.createTextNode('끝난 공구')); lgd.append(sp); }
+      left.append(nav,months,lgd); grid.append(left);
+    }
+    const right=el('div','schlist'); right.append(el('h2',null,'다음 공구 일정'));
+    if(!UP.length) right.append(el('p','ntcempty','예정된 공구 일정이 없습니다.'));
+    else{ const ol=el('ol','sch'); UP.forEach(s=>ol.append(item(s,false))); right.append(ol); }
+    if(LOOSE.length){ right.append(el('h4',null,'일정 미정')); const ul=el('ul','sch'); LOOSE.forEach(s=>ul.append(item(s,false))); right.append(ul); }
+    if(DONE.length){ right.append(el('h4',null,'이번 달 끝난 공구')); const ul=el('ul','sch'); DONE.forEach(s=>ul.append(item(s,true))); right.append(ul); }
+    grid.append(right); body.append(grid);
+    const hl=body.querySelector('.schlist li.hl'); if(hl&&hl.scrollIntoView) hl.scrollIntoView({block:'nearest'});
+  }
+  body.addEventListener('click',e=>{ const t=e.target.closest('[data-k]'); if(!t||!body.contains(t)) return; const k=+t.dataset.k; picked=(t.tagName!=='LI'&&picked===k)?-1:k;
+    const s=ALL[k]; if(picked>=0&&s&&s.start&&t.tagName==='LI'){ const d=D0(s.start<today&&s.end>=today?today:s.start), ym=d.getUTCFullYear()*12+d.getUTCMonth(); if(ym<baseM||ym>baseM+1) baseM=Math.max(minM,ym); }
+    drawSch(); });
+  function draw(tab){
+    bS.setAttribute('aria-pressed',tab==='sch'); bN.setAttribute('aria-pressed',tab==='ntc'); box.classList.toggle('wide',tab==='sch'&&E.length>0);
+    if(tab==='sch'){ drawSch(); return; }
+    body.textContent='';
+    if(!N){ body.append(el('h2',null,'공지사항'), el('p','ntcempty','등록된 공지사항이 없습니다.')); return; }
+    body.append(el('h2',null,'[ '+N.ver+' 업데이트 안내 ]'));
+    const ol=el('ol'); N.lines.forEach(t=>ol.append(el('li',null,t))); body.append(ol);
+    dot.hidden=true; try{ localStorage.setItem(NKEY,N.ver); }catch(e){}       // 공지사항을 실제로 열어 봤을 때만 읽은 것으로 기록
   }
   const esc=e=>{ if(e.key==='Escape') close(); };
   const close=()=>{ try{ sessionStorage.setItem(PKEY,auth.token||'1'); }catch(e){} m.remove(); document.removeEventListener('keydown',esc); };
   bS.onclick=()=>draw('sch'); bN.onclick=()=>draw('ntc'); x.onclick=close; document.addEventListener('keydown',esc);
-  draw(S.length||!N?'sch':'ntc'); x.focus();
+  draw(upcoming||!N?'sch':'ntc'); x.focus();
 }
 function enter(auth,D,popup){
   document.getElementById('gate').hidden=true; document.getElementById('app').hidden=false;
   const w=document.getElementById('whoLbl'); w.textContent='';
   const b=document.createElement('b'); b.textContent=auth.name; w.append(b,' · '+(auth.role==='admin'?'관리자':'일반 조회'));
   startApp(D,auth);
+  if(popup) popup.vendors=((D&&D.vendors)||[]).map(v=>v.name);
   if(popup&&((popup.schedule&&popup.schedule.length)||(popup.notice&&popup.notice.lines&&popup.notice.lines.length)||Array.isArray(popup.schedule))){
     if(!document.getElementById('ntcOpen')){ const o=document.createElement('button'); o.type='button'; o.className='reset'; o.id='ntcOpen'; o.textContent='공구일정·공지'; document.getElementById('logout').before(o); }
     document.getElementById('ntcOpen').onclick=()=>showPopup(popup,auth,true);
