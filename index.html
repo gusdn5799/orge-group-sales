@@ -263,6 +263,15 @@ td.pwc{font-family:var(--f-num);text-align:left}
 .sch .sw{display:inline-block;width:9px;height:9px;border-radius:2px;flex:none}
 .sch .s3.ov{color:var(--warn)}
 @media (max-width:760px){.schgrid{grid-template-columns:minmax(0,1fr)}.months{grid-template-columns:minmax(0,1fr)}.months .cal:nth-child(2){display:none}}
+.caltitle{display:flex;align-items:center;gap:8px}
+.fab{position:fixed;right:calc(22px + env(safe-area-inset-right,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:40;width:78px;height:78px;border-radius:50%;border:0;background:var(--accent);color:var(--panel);display:grid;place-items:center;align-content:center;gap:3px;font:inherit;font-size:11px;font-weight:700;letter-spacing:-.02em;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.22)}
+.fab svg{width:26px;height:26px;display:block}
+.fab:hover{filter:brightness(1.08)}
+.fab:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+.fabd{position:absolute;top:-5px;right:-8px;font-style:normal;font-size:10.5px;font-weight:700;line-height:1;padding:4px 7px;border-radius:999px;background:var(--fg);color:var(--panel);white-space:nowrap;font-variant-numeric:tabular-nums}
+body.hasfab .wrap{padding-bottom:120px}
+@media (max-width:760px){.fab{width:68px;height:68px;font-size:10px;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px))}.fab svg{width:22px;height:22px}}
+@media (prefers-reduced-motion:no-preference){.fab{transition:filter .15s,transform .15s}.fab:active{transform:scale(.96)}}
 </style>
 </head><body>
 <div class="gate" id="gate">
@@ -796,31 +805,38 @@ async function api(body){
   return r.json();
 }
 const hasData=d=>!!d&&((d.vendors&&d.vendors.length)||(d.rounds&&d.rounds.length));
-// 로그인 팝업 [공구일정 | 공지사항]: 내용은 로그인할 때 서버(구글 시트 "공구일정", "공지" 탭)에서 받습니다.
-// 다음 공구 일정이 있으면 로그인할 때마다 한 번 뜨고, 일정이 없으면 아직 안 본 공지가 있을 때만 뜹니다.
-const NKEY='olkye-gg-notice-seen', PKEY='olkye-gg-popup-shown';
-function showPopup(P,auth,force){
+// 업데이트 안내 팝업: 내용은 로그인할 때 서버(구글 시트 "공지" 탭)에서 받습니다. 닫으면 그 버전은 이 브라우저에서 다시 뜨지 않습니다.
+const NKEY='olkye-gg-notice-seen';
+function showNotice(n,force){
+  if(!n||!n.lines||!n.lines.length) return;
+  let seen=''; try{ seen=localStorage.getItem(NKEY)||''; }catch(e){}
+  if(!force&&seen===n.ver) return;
+  const old=document.getElementById('ntc'); if(old) old.remove();
+  const m=document.createElement('div'); m.id='ntc'; m.className='ntc'; m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true'); m.setAttribute('aria-label','업데이트 안내');
+  const box=document.createElement('div'); box.className='ntcbox';
+  const x=document.createElement('button'); x.type='button'; x.className='ntcx'; x.setAttribute('aria-label','닫기'); x.textContent='×';
+  const h=document.createElement('h2'); h.textContent='[ '+n.ver+' 업데이트 안내 ]';
+  const ol=document.createElement('ol'); n.lines.forEach(t=>{ const li=document.createElement('li'); li.textContent=t; ol.append(li); });
+  box.append(x,h,ol); m.append(box); document.body.append(m);
+  const esc=e=>{ if(e.key==='Escape') close(); };
+  const close=()=>{ try{ localStorage.setItem(NKEY,n.ver); }catch(e){} m.remove(); document.removeEventListener('keydown',esc); };
+  x.onclick=close; document.addEventListener('keydown',esc); x.focus();
+}
+// 공구캘린더: 화면 오른쪽 아래 둥근 버튼을 누르면 열립니다. 일정은 로그인할 때 서버(구글 시트 "공구일정" 탭)에서 받습니다.
+function showCalendar(P){
   const WD=['일','월','화','수','목','금','토'], VC=['--accent','--set','--s3','--s7','--s5','--s2'];
   const D0=iso=>new Date(iso+'T00:00:00Z'), ISO=d=>d.toISOString().slice(0,10), md=iso=>{ const d=D0(iso); return (d.getUTCMonth()+1)+'/'+d.getUTCDate()+'('+WD[d.getUTCDay()]+')'; };
   const today=ISO(new Date(Date.now()+9*3600e3));
   const ALL=((P&&P.schedule)||[]).map((s,k)=>Object.assign({k},s)), E=ALL.filter(s=>s.start), LOOSE=ALL.filter(s=>!s.start);
   const UP=E.filter(s=>s.end>=today), DONE=E.filter(s=>s.end<today);
-  const N=P&&P.notice&&P.notice.lines&&P.notice.lines.length?P.notice:null;
-  if(!ALL.length&&!N) return;
-  let seen='', shown=''; try{ seen=localStorage.getItem(NKEY)||''; shown=sessionStorage.getItem(PKEY)||''; }catch(e){}
-  const unseen=!!N&&seen!==N.ver, upcoming=UP.length+LOOSE.length;
-  if(!force&&(shown===auth.token||!(upcoming||unseen))) return;
   const el=(t,c,x)=>{ const e=document.createElement(t); if(c) e.className=c; if(x!=null) e.textContent=x; return e; };
   const who=s=>[s.vendor,s.inf].filter(Boolean).join(' · ')||'공구';
   const vnames=[]; ((P&&P.vendors)||[]).concat(ALL.map(s=>s.vendor)).forEach(v=>{ if(v&&vnames.indexOf(v)<0) vnames.push(v); });
   const vcol=v=>'var('+VC[Math.max(0,vnames.indexOf(v))%VC.length]+')';
-  const old=document.getElementById('ntc'); if(old) old.remove();
-  const m=el('div','ntc'); m.id='ntc'; m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true'); m.setAttribute('aria-label','공구일정과 공지사항');
+  const old=document.getElementById('gcal'); if(old) old.remove();
+  const m=el('div','ntc'); m.id='gcal'; m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true'); m.setAttribute('aria-label','공구캘린더');
   const box=el('div','ntcbox'+(E.length?' wide':'')), x=el('button','ntcx','×'); x.type='button'; x.setAttribute('aria-label','닫기');
-  const seg=el('span','seg ntcseg'); seg.setAttribute('role','group'); seg.setAttribute('aria-label','팝업 내용 선택');
-  const bS=el('button',null,'공구일정'), bN=el('button',null,'공지사항'); bS.type=bN.type='button'; seg.append(bS,bN);
-  const dot=el('i','ntcdot'); dot.hidden=!unseen; bN.append(dot);
-  const body=el('div','ntcbody'); box.append(x,seg,body); m.append(box); document.body.append(m);
+  const ttl=el('h2','caltitle','공구캘린더'), body=el('div','ntcbody'); box.append(x,ttl,body); m.append(box); document.body.append(m);
 
   // ----- 달력: 이번 달부터 2개월. 겹치는 공구는 줄을 쌓아 그립니다.
   const t0=D0(today), minM=t0.getUTCFullYear()*12+t0.getUTCMonth(), lastM=E.reduce((p,s)=>{ const d=D0(s.end); return Math.max(p,d.getUTCFullYear()*12+d.getUTCMonth()); },minM);
@@ -881,30 +897,34 @@ function showPopup(P,auth,force){
   body.addEventListener('click',e=>{ const t=e.target.closest('[data-k]'); if(!t||!body.contains(t)) return; const k=+t.dataset.k; picked=(t.tagName!=='LI'&&picked===k)?-1:k;
     const s=ALL[k]; if(picked>=0&&s&&s.start&&t.tagName==='LI'){ const d=D0(s.start<today&&s.end>=today?today:s.start), ym=d.getUTCFullYear()*12+d.getUTCMonth(); if(ym<baseM||ym>baseM+1) baseM=Math.max(minM,ym); }
     drawSch(); });
-  function draw(tab){
-    bS.setAttribute('aria-pressed',tab==='sch'); bN.setAttribute('aria-pressed',tab==='ntc'); box.classList.toggle('wide',tab==='sch'&&E.length>0);
-    if(tab==='sch'){ drawSch(); return; }
-    body.textContent='';
-    if(!N){ body.append(el('h2',null,'공지사항'), el('p','ntcempty','등록된 공지사항이 없습니다.')); return; }
-    body.append(el('h2',null,'[ '+N.ver+' 업데이트 안내 ]'));
-    const ol=el('ol'); N.lines.forEach(t=>ol.append(el('li',null,t))); body.append(ol);
-    dot.hidden=true; try{ localStorage.setItem(NKEY,N.ver); }catch(e){}       // 공지사항을 실제로 열어 봤을 때만 읽은 것으로 기록
-  }
   const esc=e=>{ if(e.key==='Escape') close(); };
-  const close=()=>{ try{ sessionStorage.setItem(PKEY,auth.token||'1'); }catch(e){} m.remove(); document.removeEventListener('keydown',esc); };
-  bS.onclick=()=>draw('sch'); bN.onclick=()=>draw('ntc'); x.onclick=close; document.addEventListener('keydown',esc);
-  draw(upcoming||!N?'sch':'ntc'); x.focus();
+  const close=()=>{ m.remove(); document.removeEventListener('keydown',esc); };
+  x.onclick=close; m.addEventListener('click',e=>{ if(e.target===m) close(); }); document.addEventListener('keydown',esc);
+  drawSch(); x.focus();
+}
+// 오른쪽 아래에 떠 있는 [공구캘린더] 버튼. 가장 가까운 공구까지 남은 날을 작은 배지로 붙입니다.
+function mountCalendarButton(P){
+  if(document.getElementById('calFab')) return;
+  const b=document.createElement('button'); b.type='button'; b.id='calFab'; b.className='fab'; b.setAttribute('aria-label','공구캘린더 열기');
+  b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.3h.01M12 17.3h.01"/></svg><span>공구캘린더</span>';
+  const today=new Date(Date.now()+9*3600e3).toISOString().slice(0,10), up=((P&&P.schedule)||[]).filter(s=>s.start&&s.end>=today).sort((p,q)=>p.start<q.start?-1:1);
+  if(up.length){ const dd=Math.round((new Date(up[0].start+'T00:00:00Z')-new Date(today+'T00:00:00Z'))/864e5), bd=document.createElement('i'); bd.className='fabd'; bd.textContent=dd<=0?'진행 중':'D-'+dd; b.append(bd); }
+  b.onclick=()=>showCalendar(P); document.body.append(b); document.body.classList.add('hasfab');
 }
 function enter(auth,D,popup){
   document.getElementById('gate').hidden=true; document.getElementById('app').hidden=false;
   const w=document.getElementById('whoLbl'); w.textContent='';
   const b=document.createElement('b'); b.textContent=auth.name; w.append(b,' · '+(auth.role==='admin'?'관리자':'일반 조회'));
   startApp(D,auth);
-  if(popup) popup.vendors=((D&&D.vendors)||[]).map(v=>v.name);
-  if(popup&&((popup.schedule&&popup.schedule.length)||(popup.notice&&popup.notice.lines&&popup.notice.lines.length)||Array.isArray(popup.schedule))){
-    if(!document.getElementById('ntcOpen')){ const o=document.createElement('button'); o.type='button'; o.className='reset'; o.id='ntcOpen'; o.textContent='공구일정·공지'; document.getElementById('logout').before(o); }
-    document.getElementById('ntcOpen').onclick=()=>showPopup(popup,auth,true);
-    showPopup(popup,auth,false);
+  if(popup){
+    popup.vendors=((D&&D.vendors)||[]).map(v=>v.name);
+    if(Array.isArray(popup.schedule)) mountCalendarButton(popup);
+    const n=popup.notice;
+    if(n&&n.lines&&n.lines.length){
+      if(!document.getElementById('ntcOpen')){ const o=document.createElement('button'); o.type='button'; o.className='reset'; o.id='ntcOpen'; o.textContent='업데이트 안내'; document.getElementById('logout').before(o); }
+      document.getElementById('ntcOpen').onclick=()=>showNotice(n,true);
+      showNotice(n,false);
+    }
   }
 }
 (function(){
