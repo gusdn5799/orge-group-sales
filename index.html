@@ -264,14 +264,14 @@ td.pwc{font-family:var(--f-num);text-align:left}
 .sch .s3.ov{color:var(--warn)}
 @media (max-width:760px){.schgrid{grid-template-columns:minmax(0,1fr)}.months{grid-template-columns:minmax(0,1fr)}.months .cal:nth-child(2){display:none}}
 .caltitle{display:flex;align-items:center;gap:8px}
-.fab{position:fixed;right:calc(22px + env(safe-area-inset-right,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:40;width:78px;height:78px;border-radius:50%;border:0;background:var(--accent);color:var(--panel);display:grid;place-items:center;align-content:center;gap:3px;font:inherit;font-size:11px;font-weight:700;letter-spacing:-.02em;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.22)}
-.fab svg{width:26px;height:26px;display:block}
-.fab:hover{filter:brightness(1.08)}
-.fab:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
-.fabd{position:absolute;top:-5px;right:-8px;font-style:normal;font-size:10.5px;font-weight:700;line-height:1;padding:4px 7px;border-radius:999px;background:var(--fg);color:var(--panel);white-space:nowrap;font-variant-numeric:tabular-nums}
-body.hasfab .wrap{padding-bottom:120px}
-@media (max-width:760px){.fab{width:68px;height:68px;font-size:10px;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px))}.fab svg{width:22px;height:22px}}
-@media (prefers-reduced-motion:no-preference){.fab{transition:filter .15s,transform .15s}.fab:active{transform:scale(.96)}}
+.gcbtn{position:fixed;right:calc(22px + env(safe-area-inset-right,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:40;width:78px;height:78px;border-radius:50%;border:0;background:var(--accent);color:var(--panel);display:grid;place-items:center;align-content:center;gap:3px;font:inherit;font-size:11px;font-weight:700;letter-spacing:-.02em;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.22)}
+.gcbtn svg{width:26px;height:26px;display:block}
+.gcbtn:hover{filter:brightness(1.08)}
+.gcbtn:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+.gcbadge{position:absolute;top:-5px;right:-8px;font-style:normal;font-size:10.5px;font-weight:700;line-height:1;padding:4px 7px;border-radius:999px;background:var(--fg);color:var(--panel);white-space:nowrap;font-variant-numeric:tabular-nums}
+body.hasgc .wrap{padding-bottom:120px}
+@media (max-width:760px){.gcbtn{width:68px;height:68px;font-size:10px;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px))}.gcbtn svg{width:22px;height:22px}}
+@media (prefers-reduced-motion:no-preference){.gcbtn{transition:filter .15s,transform .15s}.gcbtn:active{transform:scale(.96)}}
 </style>
 </head><body>
 <div class="gate" id="gate">
@@ -901,16 +901,18 @@ function showCalendar(P){
   const esc=e=>{ if(e.key==='Escape') close(); };
   const close=()=>{ m.remove(); document.removeEventListener('keydown',esc); };
   x.onclick=close; m.addEventListener('click',e=>{ if(e.target===m) close(); }); document.addEventListener('keydown',esc);
-  drawSch(); x.focus();
+  if(!P||!Array.isArray(P.schedule)){ body.append(el('p','ntcempty','공구 일정을 불러오지 못했습니다. '+(P&&P.scheduleError?'원인: '+P.scheduleError:'구글 시트의 Apps Script 코드를 최신 버전으로 바꾸고 [배포 관리 → 새 버전]으로 배포했는지 확인하세요.'))); box.classList.remove('wide'); }
+  else drawSch();
+  x.focus();
 }
 // 오른쪽 아래에 떠 있는 [공구캘린더] 버튼. 가장 가까운 공구까지 남은 날을 작은 배지로 붙입니다.
 function mountCalendarButton(P){
-  if(document.getElementById('calFab')) return;
-  const b=document.createElement('button'); b.type='button'; b.id='calFab'; b.className='fab'; b.setAttribute('aria-label','공구캘린더 열기');
+  if(document.getElementById('gcalBtn')) return;
+  const b=document.createElement('button'); b.type='button'; b.id='gcalBtn'; b.className='gcbtn'; b.setAttribute('aria-label','공구캘린더 열기');
   b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.3h.01M12 17.3h.01"/></svg><span>공구캘린더</span>';
   const today=new Date(Date.now()+9*3600e3).toISOString().slice(0,10), up=((P&&P.schedule)||[]).filter(s=>s.start&&s.end>=today).sort((p,q)=>p.start<q.start?-1:1);
-  if(up.length){ const dd=Math.round((new Date(up[0].start+'T00:00:00Z')-new Date(today+'T00:00:00Z'))/864e5), bd=document.createElement('i'); bd.className='fabd'; bd.textContent=dd<=0?'진행 중':'D-'+dd; b.append(bd); }
-  b.onclick=()=>showCalendar(P); document.body.append(b); document.body.classList.add('hasfab');
+  if(up.length){ const dd=Math.round((new Date(up[0].start+'T00:00:00Z')-new Date(today+'T00:00:00Z'))/864e5), bd=document.createElement('i'); bd.className='gcbadge'; bd.textContent=dd<=0?'진행 중':'D-'+dd; b.append(bd); }
+  b.onclick=()=>showCalendar(P); document.body.append(b); document.body.classList.add('hasgc');
 }
 function enter(auth,D,popup){
   document.getElementById('gate').hidden=true; document.getElementById('app').hidden=false;
@@ -919,7 +921,7 @@ function enter(auth,D,popup){
   startApp(D,auth);
   if(popup){
     popup.vendors=((D&&D.vendors)||[]).map(v=>v.name);
-    if(Array.isArray(popup.schedule)) mountCalendarButton(popup);
+    mountCalendarButton(popup);
     const n=popup.notice;
     if(n&&n.lines&&n.lines.length){
       if(!document.getElementById('ntcOpen')){ const o=document.createElement('button'); o.type='button'; o.className='reset'; o.id='ntcOpen'; o.textContent='업데이트 안내'; document.getElementById('logout').before(o); }
@@ -961,14 +963,14 @@ function enter(auth,D,popup){
       if(!hasData(res.data)){ busy(false); noData(res); return; }
       const auth={name,role:res.role,token:res.token,sheetUrl:res.sheetUrl||''};
       try{ sessionStorage.setItem(SS,JSON.stringify(auth)); }catch(e2){}
-      enter(auth,res.data,{schedule:res.schedule,notice:res.notice}); }
+      enter(auth,res.data,{schedule:res.schedule,notice:res.notice,scheduleError:res.scheduleError}); }
     catch(e1){ err.textContent='접속 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.'; }
     busy(false); });
   setMode('login');
   let saved=null; try{ saved=JSON.parse(sessionStorage.getItem(SS)||'null'); }catch(e){}
   if(saved&&saved.token){ busy(true,'데이터를 불러오는 중…'); g('gName').value=saved.name||'';
     api({action:'data',token:saved.token}).then(res=>{ busy(false);
-      if(res.ok&&hasData(res.data)){ saved.role=res.role; saved.sheetUrl=res.sheetUrl||''; enter(saved,res.data,{schedule:res.schedule,notice:res.notice}); }
+      if(res.ok&&hasData(res.data)){ saved.role=res.role; saved.sheetUrl=res.sheetUrl||''; enter(saved,res.data,{schedule:res.schedule,notice:res.notice,scheduleError:res.scheduleError}); }
       else { drop(); if(res.ok) noData(res); else err.textContent=res.msg||''; g('gPw').focus(); } })
     .catch(()=>{ busy(false); err.textContent='접속 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.'; }); }
   else g('gName').focus();
