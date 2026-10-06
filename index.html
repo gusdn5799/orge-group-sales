@@ -835,7 +835,7 @@ function showCalendar(P){
   const vcol=v=>'var('+VC[Math.max(0,vnames.indexOf(v))%VC.length]+')';
   const old=document.getElementById('gcal'); if(old) old.remove();
   const m=el('div','ntc'); m.id='gcal'; m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true'); m.setAttribute('aria-label','공구캘린더');
-  const box=el('div','ntcbox'+(E.length?' wide':'')), x=el('button','ntcx','×'); x.type='button'; x.setAttribute('aria-label','닫기');
+  const box=el('div','ntcbox wide'), x=el('button','ntcx','×'); x.type='button'; x.setAttribute('aria-label','닫기');
   const ttl=el('h2','caltitle','공구캘린더'), body=el('div','ntcbody'); box.append(x,ttl,body); m.append(box); document.body.append(m);
 
   // ----- 달력: 이번 달부터 2개월. 겹치는 공구는 줄을 쌓아 그립니다.
@@ -876,14 +876,15 @@ function showCalendar(P){
     return li; }
   function drawSch(){
     body.textContent='';
-    const grid=el('div','schgrid'+(E.length?'':' solo'));
-    if(E.length){
+    const grid=el('div','schgrid');
+    {
       const left=el('div','calwrap'), nav=el('div','calnav'), pv=el('button','calbtn','◀'), nx=el('button','calbtn','▶'); pv.type=nx.type='button';
       pv.setAttribute('aria-label','이전 달'); nx.setAttribute('aria-label','다음 달'); pv.disabled=baseM<=minM; nx.disabled=baseM+1>=lastM;
       pv.onclick=()=>{ baseM--; drawSch(); }; nx.onclick=()=>{ baseM++; drawSch(); };
       const months=el('div','months'); months.append(month(baseM),month(baseM+1)); nav.append(pv,nx);
       const lgd=el('div','legend'); vnames.filter(v=>E.some(s=>s.vendor===v)).forEach(v=>{ const sp=el('span'), i=el('i'); i.style.background=vcol(v); sp.append(i,document.createTextNode(v)); lgd.append(sp); });
       if(DONE.length){ const sp=el('span'), i=el('i'); i.style.background='var(--y-mid)'; sp.append(i,document.createTextNode('끝난 공구')); lgd.append(sp); }
+      if(!E.length) lgd.append(el('span',null,'달력에 표시할 일정이 아직 없습니다.'));
       left.append(nav,months,lgd); grid.append(left);
     }
     const right=el('div','schlist'); right.append(el('h2',null,'다음 공구 일정'));
