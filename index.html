@@ -327,10 +327,10 @@ td.pwc{font-family:var(--f-num);text-align:left}
   <section class="card">
     <div class="hd"><h2>권한 요청 <span class="pill wn" id="aCnt" hidden></span></h2>
       <span class="fg"><label class="tog"><input type="checkbox" id="aShow">비밀번호 보기</label><button type="button" class="btn" id="aReload">새로고침</button></span></div>
-    <div class="note">수락하면 그 이름과 비밀번호로 로그인할 수 있습니다. 거절하면 요청이 지워집니다.</div>
+    <div class="note" id="aNote0">수락하면 그 이름과 비밀번호로 로그인할 수 있습니다. 거절하면 요청이 지워집니다.</div>
     <div class="tbl" style="max-height:260px"><table id="aPend"></table></div>
     <h2 style="margin-top:8px">계정 목록</h2>
-    <div class="note">차단하면 로그인 중이어도 다음 새로고침 때 접속이 끊깁니다. 같은 내용이 구글 시트 "계정" 탭에 저장됩니다.</div>
+    <div class="note" id="aNote">차단하면 로그인 중이어도 다음 새로고침 때 접속이 끊깁니다. 같은 내용이 구글 시트 "계정" 탭에 저장됩니다.</div>
     <div class="tbl" style="max-height:360px"><table id="aList"></table></div>
   </section>
   <section class="card">
@@ -695,8 +695,11 @@ async function logRender(){
 let ACC=[], accBusy=false;
 async function accLoad(){ let res; try{ res=await api({action:'accounts',token:AUTH.token}); }catch(e){ res={ok:false,msg:'접속 서버에 연결하지 못했습니다.'}; }
   if(!res.ok){ G('aPend').innerHTML=`<tbody><tr><td class="empty">${esc(res.msg||'계정 목록을 불러오지 못했습니다.')}</td></tr></tbody>`; G('aList').innerHTML=''; return; }
-  ACC=res.rows||[]; accDraw(); }
+  ACC=res.rows||[]; ACC_SHARED=!!res.shared; accDraw(); }
+let ACC_SHARED=false;
 function accDraw(){
+  G('aNote0').textContent=ACC_SHARED?'판매실적 대시보드와 계정을 함께 씁니다. 수락하면 그 이름과 비밀번호로 두 대시보드에 모두 로그인할 수 있습니다. 거절하면 요청이 지워집니다.':'수락하면 그 이름과 비밀번호로 로그인할 수 있습니다. 거절하면 요청이 지워집니다.';
+  G('aNote').textContent=ACC_SHARED?'차단·삭제는 두 대시보드에 같이 적용됩니다. 로그인 중이어도 다음 새로고침 때 접속이 끊깁니다. 계정은 판매실적 대시보드 구글 시트의 "계정" 탭에 저장됩니다.':'차단하면 로그인 중이어도 다음 새로고침 때 접속이 끊깁니다. 같은 내용이 구글 시트 "계정" 탭에 저장됩니다.';
   const show=G('aShow').checked, pwc=p=>show?esc(p):'•'.repeat(Math.min(10,String(p).length));
   const pend=ACC.filter(r=>r[2]==='대기'), rest=ACC.filter(r=>r[2]!=='대기');
   G('aCnt').hidden=!pend.length; G('aCnt').textContent=pend.length+'건 대기'; G('vLogBtn').textContent='관리자'+(pend.length?` (${pend.length})`:'');
@@ -708,7 +711,7 @@ function accDraw(){
 async function accClick(e){ const b=e.target.closest('[data-op]'); if(!b||accBusy) return; const op=b.dataset.op;
   if((op==='delete'||op==='reject')&&!b.dataset.armed){ b.dataset.armed='1'; b.textContent=op==='delete'?'정말 삭제':'정말 거절'; setTimeout(()=>{ if(b.isConnected){ delete b.dataset.armed; b.textContent=op==='delete'?'삭제':'거절'; } },4000); return; }
   accBusy=true; b.disabled=true; let res; try{ res=await api({action:'account_set',token:AUTH.token,name:b.dataset.name,op}); }catch(err){ res={ok:false,msg:'접속 서버에 연결하지 못했습니다.'}; }
-  accBusy=false; if(res.ok){ ACC=res.rows||[]; accDraw(); } else { b.disabled=false; b.textContent=res.msg||'실패'; } }
+  accBusy=false; if(res.ok){ ACC=res.rows||[]; ACC_SHARED=!!res.shared; accDraw(); } else { b.disabled=false; b.textContent=res.msg||'실패'; } }
 
 
 // ---------- 회차 분석 보고 메일
