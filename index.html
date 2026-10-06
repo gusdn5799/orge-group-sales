@@ -840,6 +840,8 @@ function showCalendar(P){
 
   // ----- 달력: 이번 달부터 2개월. 겹치는 공구는 줄을 쌓아 그립니다.
   const t0=D0(today), minM=t0.getUTCFullYear()*12+t0.getUTCMonth(), lastM=E.reduce((p,s)=>{ const d=D0(s.end); return Math.max(p,d.getUTCFullYear()*12+d.getUTCMonth()); },minM);
+  // 한 번에 보이는 달 수: 넓은 화면 2개월, 좁은 화면(모바일) 1개월. 다음 달 버튼은 일정이 있는 마지막 달이 보일 때까지 눌립니다.
+  const mq=window.matchMedia?window.matchMedia('(max-width:760px)'):null, shown=()=>(mq&&mq.matches)?1:2;
   let baseM=minM, picked=-1;
   function month(ym){
     const y=Math.floor(ym/12), mo=ym%12, dim=new Date(Date.UTC(y,mo+1,0)).getUTCDate(), lead=new Date(Date.UTC(y,mo,1)).getUTCDay(), iso=d=>ISO(new Date(Date.UTC(y,mo,d)));
@@ -879,7 +881,8 @@ function showCalendar(P){
     const grid=el('div','schgrid');
     {
       const left=el('div','calwrap'), nav=el('div','calnav'), pv=el('button','calbtn','◀'), nx=el('button','calbtn','▶'); pv.type=nx.type='button';
-      pv.setAttribute('aria-label','이전 달'); nx.setAttribute('aria-label','다음 달'); pv.disabled=baseM<=minM; nx.disabled=baseM+1>=lastM;
+      pv.setAttribute('aria-label','이전 달'); nx.setAttribute('aria-label','다음 달'); pv.disabled=baseM<=minM; nx.disabled=baseM+shown()-1>=lastM;
+      if(pv.disabled) pv.title='지난달 일정은 보관하지 않습니다'; if(nx.disabled) nx.title='이후 달에는 등록된 일정이 없습니다';
       pv.onclick=()=>{ baseM--; drawSch(); }; nx.onclick=()=>{ baseM++; drawSch(); };
       const months=el('div','months'); months.append(month(baseM),month(baseM+1)); nav.append(pv,nx);
       const lgd=el('div','legend'); vnames.filter(v=>E.some(s=>s.vendor===v)).forEach(v=>{ const sp=el('span'), i=el('i'); i.style.background=vcol(v); sp.append(i,document.createTextNode(v)); lgd.append(sp); });
@@ -896,10 +899,12 @@ function showCalendar(P){
     const hl=body.querySelector('.schlist li.hl'); if(hl&&hl.scrollIntoView) hl.scrollIntoView({block:'nearest'});
   }
   body.addEventListener('click',e=>{ const t=e.target.closest('[data-k]'); if(!t||!body.contains(t)) return; const k=+t.dataset.k; picked=(t.tagName!=='LI'&&picked===k)?-1:k;
-    const s=ALL[k]; if(picked>=0&&s&&s.start&&t.tagName==='LI'){ const d=D0(s.start<today&&s.end>=today?today:s.start), ym=d.getUTCFullYear()*12+d.getUTCMonth(); if(ym<baseM||ym>baseM+1) baseM=Math.max(minM,ym); }
+    const s=ALL[k]; if(picked>=0&&s&&s.start&&t.tagName==='LI'){ const d=D0(s.start<today&&s.end>=today?today:s.start), ym=d.getUTCFullYear()*12+d.getUTCMonth(); if(ym<baseM||ym>baseM+shown()-1) baseM=Math.max(minM,ym); }
     drawSch(); });
   const esc=e=>{ if(e.key==='Escape') close(); };
-  const close=()=>{ m.remove(); document.removeEventListener('keydown',esc); };
+  const onMq=()=>{ if(document.body.contains(m)&&body.querySelector('.schgrid')) drawSch(); };
+  if(mq){ if(mq.addEventListener) mq.addEventListener('change',onMq); else if(mq.addListener) mq.addListener(onMq); }
+  const close=()=>{ m.remove(); document.removeEventListener('keydown',esc); if(mq){ if(mq.removeEventListener) mq.removeEventListener('change',onMq); else if(mq.removeListener) mq.removeListener(onMq); } };
   x.onclick=close; m.addEventListener('click',e=>{ if(e.target===m) close(); }); document.addEventListener('keydown',esc);
   if(!P||!Array.isArray(P.schedule)){ body.append(el('p','ntcempty','공구 일정을 불러오지 못했습니다. '+(P&&P.scheduleError?'원인: '+P.scheduleError:'구글 시트의 Apps Script 코드를 최신 버전으로 바꾸고 [배포 관리 → 새 버전]으로 배포했는지 확인하세요.'))); box.classList.remove('wide'); }
   else drawSch();
