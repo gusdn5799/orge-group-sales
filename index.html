@@ -713,17 +713,22 @@ function render(){
 const YR=(()=>{const by={};
   DATA.vendors.forEach(v=>{const SI=v.setName?v.items.length:-1;
     v.rounds.forEach(r=>{const y=String(r.start||'').slice(0,4);if(!/^\d{4}$/.test(y))return;
-      const o=by[y]||(by[y]={pay:0,sup:0,n:0,vend:new Set(),np:{}});
-      r.lines.forEach(([_,i,q])=>{if(i===SI){o.pay+=q*(r.setPay||0);o.sup+=q*(r.setSup||0)}else{o.pay+=q*((r.pay&&r.pay[i])||0);o.sup+=q*((r.sup&&r.sup[i])||0)}});
+      const o=by[y]||(by[y]={pay:0,sup:0,fee:0,n:0,nx:0,vend:new Set(),np:{}});
+      let p=0,u=0;r.lines.forEach(([_,i,q])=>{if(i===SI){p+=q*(r.setPay||0);u+=q*(r.setSup||0)}else{p+=q*((r.pay&&r.pay[i])||0);u+=q*((r.sup&&r.sup[i])||0)}});
+      o.pay+=p;o.sup+=u;o.fee+=p-u;
       o.n++;o.vend.add(v.name);if(r.noPrice&&r.noPrice.length)o.np[v.name]=(o.np[v.name]||0)+1})});
+  // 정산서 금액만 있는 회차 (구글 시트 "정산합계" 탭). 이 칸에만 더하고 상세 화면에는 쓰지 않습니다.
+  (DATA.extra||[]).forEach(x=>{const y=String(x.y||'');if(!/^\d{4}$/.test(y))return;
+    const o=by[y]||(by[y]={pay:0,sup:0,fee:0,n:0,nx:0,vend:new Set(),np:{}});
+    o.pay+=+x.pay||0;o.sup+=+x.sup||0;o.fee+=(x.fee!=null?+x.fee:(+x.pay||0)-(+x.sup||0))||0;o.n++;o.nx++;if(x.vendor)o.vend.add(x.vendor)});
   return by})();
 function renderYear(){const ys=Object.keys(YR).sort().reverse(),sel=$('#fYear');
   if(!ys.length){$('#yKpis').innerHTML='';$('#yNote').textContent='집계할 회차가 없어요.';sel.innerHTML='';return}
   if(!sel.options.length)sel.innerHTML=ys.map(y=>`<option value="${y}">${y}년</option>`).join('');
-  const y=sel.value||ys[0],o=YR[y],fee=o.pay-o.sup;
+  const y=sel.value||ys[0],o=YR[y],fee=o.fee;
   const card=(l,v,d)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${won(v)}${Math.abs(v)<1e4?'<small>원</small>':''}</div><div class="d">${d}</div></div>`;
   $('#yKpis').innerHTML=card(`${y}년 결제액`,o.pay,nf(o.pay)+'원')+card(`${y}년 올계 매출`,o.sup,nf(o.sup)+'원 · 공급가 기준')+card(`${y}년 벤더사 수수료`,fee,nf(fee)+'원'+(o.pay?' · 결제액의 '+pc(fee/o.pay):''));
-  $('#yNote').textContent=`${o.n}개 회차 (${[...o.vend].join(', ')}) · 회차 시작일의 연도로 묶어요. 금액은 수량 × 가격표, 취소·반품 제외.`+
+  $('#yNote').textContent=`${o.n}개 회차 (${[...o.vend].join(', ')})`+(o.nx?` · 이 중 ${o.nx}개는 정산서 금액 (구글 시트 "정산합계" 탭, 상세 화면에는 없음)`:'')+` · 주문 데이터가 있는 회차는 시작일의 연도로 묶고, 금액은 수량 × 가격표(취소·반품 제외)로 계산해요.`+
     (Object.keys(o.np).length?` ⚠ 가격표가 비어 0원으로 계산된 회차가 있어 실제보다 적게 나와요 (${Object.entries(o.np).map(([k,n])=>k+' '+n+'개').join(', ')}).`:'')}
 $('#fYear').addEventListener('change',renderYear);
 
