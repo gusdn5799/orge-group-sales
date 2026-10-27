@@ -51,12 +51,14 @@ select,input[type=search],input[type=date]{font:inherit;font-size:13px;color:var
 .ykpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .ykpis .kpi{background:var(--bg)}
 @media (max-width:560px){.ykpis{grid-template-columns:minmax(0,1fr)}}
-.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:4px;align-content:start;min-width:0}
 .kpi .l{font-size:12px;color:var(--muted);font-weight:500}
 .kpi .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
 .kpi .v small{font-size:13px;font-weight:500;color:var(--fg2);margin-left:2px}
 .kpi .d{font-size:12px;color:var(--fg2);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.kpi .x{font-size:12px;color:var(--fg2)}
+.kpi .x.miss{color:var(--warn);font-size:11px}
 .pill{font-size:11.5px;font-weight:600;border-radius:4px;padding:1px 6px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .up{color:var(--good);background:var(--good-bg)} .dn{color:var(--bad);background:var(--bad-bg)} .wn{color:var(--warn);background:var(--warn-bg)} .nt{color:var(--fg2);background:var(--grid)}
 .row{display:grid;gap:16px;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}
@@ -90,7 +92,7 @@ td.rk{color:var(--muted);text-align:left;width:22px}
 .hd{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .empty{color:var(--muted);font-size:12.5px;padding:12px 0}
 footer{font-size:12px;color:var(--muted);line-height:1.6}
-@media (max-width:1100px){.kpis{grid-template-columns:repeat(5,minmax(0,1fr))}.kpi .v{font-size:21px}.row3{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}.kpi .v{font-size:21px}.row3{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:760px){.row,.row.tables{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.filters{position:static}.wrap{padding-inline:16px}.kpi .v{font-size:20px}}
 @media (prefers-reduced-motion:no-preference){.ch rect,.ch path{transition:opacity .15s}}
@@ -495,9 +497,11 @@ function grp(set){if(!set||!set.size)return null;const idx=[...set].sort((x,y)=>
 function dm(G,k){for(let s=G.seg.length-1;s>=0;s--)if(k>=G.seg[s].off)return {r:G.seg[s].r,i:k-G.seg[s].off,s};return null}
 
 /* ---------- 집계 ---------- */
+// ALL세트 기존 소비자가: 가격표에 세트 기존가가 있으면 그것, 없으면 구성품 기존가 합 (하나라도 비면 0)
+function setListOf(r){if(r.setList>0)return r.setList;if(!r.list)return 0;let t=0;for(const j of V.setItems){const v=r.list[j]||0;if(!(v>0))return 0;t+=v}return t}
 function agg(G,ct){
   const sel=S.items,z=n=>Array(n).fill(0),ND=G.days;
-  const a={G,single:z(NI),setU:z(NI),sets:0,setPayT:0,setSupT:0,pay:0,sup:0,packs:0,itPay:z(NI),itSup:z(NI),openQ:0,
+  const a={G,lstL:0,lstPay:0,lstSup:0,lstMiss:new Set(),itList:z(NI),setListT:0,single:z(NI),setU:z(NI),sets:0,setPayT:0,setSupT:0,pay:0,sup:0,packs:0,itPay:z(NI),itSup:z(NI),openQ:0,
     dayQ:z(ND),dayPay:z(ND),daySup:z(ND),hrQ:z(24),hrPay:z(24),hrSup:z(24),
     itemDay:V.items.map(()=>z(ND)),itemOrd:z(NI+1),orders:0,custs:new Set(),repC:new Set(),oPay:[],oPacks:[],oKinds:[]};
   for(const {r,off} of G.seg)for(const o of r.orders){
@@ -507,11 +511,13 @@ function agg(G,ct){
     for(const [i,q] of o.L){
       if(!sel.has(i))continue; hit=true;
       if(i===SET){
-        a.sets+=q;const p=q*r.setPay,s=q*r.setSup;a.pay+=p;a.sup+=s;a.setPayT+=p;a.setSupT+=s;a.dayPay[di]+=p;a.daySup[di]+=s;seen.add(SET);
+        a.sets+=q;const p=q*r.setPay,s=q*r.setSup;a.pay+=p;a.sup+=s;a.setPayT+=p;a.setSupT+=s;
+        {const L=setListOf(r);if(L>0){a.lstL+=q*L;a.lstPay+=p;a.lstSup+=s;a.setListT+=q*L}else a.lstMiss.add(SETN)}a.dayPay[di]+=p;a.daySup[di]+=s;seen.add(SET);
         if(o.d===1){a.hrPay[o.h]+=p;a.hrSup[o.h]+=s}
         for(const j of V.setItems){if(!sel.has(j))continue;a.setU[j]+=q;a.packs+=q;a.dayQ[di]+=q;a.itemDay[j][di]+=q;seen.add(j);if(o.d===1){a.hrQ[o.h]+=q;a.openQ+=q}}
       }else{
         const p=q*r.pay[i],s=q*r.sup[i];a.single[i]+=q;a.itPay[i]+=p;a.itSup[i]+=s;a.pay+=p;a.sup+=s;a.packs+=q;
+        {const L=(r.list&&r.list[i])||0;if(L>0){a.lstL+=q*L;a.lstPay+=p;a.lstSup+=s;a.itList[i]+=q*L}else a.lstMiss.add(V.items[i])}
         a.dayQ[di]+=q;a.dayPay[di]+=p;a.daySup[di]+=s;a.itemDay[i][di]+=q;seen.add(i);
         if(o.d===1){a.hrQ[o.h]+=q;a.hrPay[o.h]+=p;a.hrSup[o.h]+=s;a.openQ+=q}
       }
@@ -524,6 +530,7 @@ function agg(G,ct){
   a.free=n&&V.freeShip?a.oPay.filter(v=>v>=V.freeShip).length/n:NaN;
   a.repShare=a.custs.size?a.repC.size/a.custs.size:NaN;
   a.d1=a.packs?a.openQ/a.packs:NaN;
+  a.rate=a.lstL?a.lstSup/a.lstL:NaN;a.disc=a.lstL?1-a.lstPay/a.lstL:NaN;a.feeR=a.lstL?(a.lstPay-a.lstSup)/a.lstL:NaN;
   return a;
 }
 
@@ -593,14 +600,20 @@ function render(){
     [FS?FS+' 이상 주문 비중':'무료배송 기준 이상 주문 비중',pc(a.free),'',dPp(a.free,b&&b.free),FS&&b&&pc(b.free)],
     ['고객 수',nf(a.custs.size),'명',dPct(a.custs.size,b&&b.custs.size),b&&nf(b.custs.size)],
     ['재구매 고객 비중',GA.first?'–':pc(a.repShare),'',GA.first||(hasC&&GB.first)?'':dPp(a.repShare,b&&b.repShare),GA.first?'':(b&&!GB.first&&pc(b.repShare))],
-    [GA.multi?'오픈일 판매 비중':'1일차 판매 비중',pc(a.d1),'',dPp(a.d1,b&&b.d1),b&&pc(b.d1)]];
+    [GA.multi?'오픈일 판매 비중':'1일차 판매 비중',pc(a.d1),'',dPp(a.d1,b&&b.d1),b&&pc(b.d1)],
+    ['기존 소비자가 대비 수취율',a.lstL&&pr0?pc(a.rate):'–','',dPp(a.rate,b&&b.lstL?b.rate:null),b&&b.lstL&&pc(b.rate)],
+    ['기존가 기준 매출',a.lstL&&pr0?won(a.lstL):'–',a.lstL&&pr0?'원':'',dPct(a.lstL,b&&b.lstL),b&&b.lstL&&won(b.lstL)]];
   $('#kpis').innerHTML=K.map(([l,v,u,d,c],i)=>{
     let sub=(d||'')+(c?cv(c):'');
     if(i===8&&GA.first)sub='<span>첫 집계 회차라 이전 이력 없음</span>';
     if(i===3&&hasSet&&!S.items.has(SET))sub='<span>품목 필터에서 제외됨</span>';
     if(i===6&&!FS)sub='<span>무료배송 기준 미입력</span>';
     if((i<2||i===5)&&!pr0)sub='<span>가격표 미입력</span>';
-    return `<div class="kpi"><div class="l">${l}</div><div class="v">${v}${u?`<small>${u}</small>`:''}</div><div class="d">${sub||'&nbsp;'}</div></div>`}).join('');
+    let ex='';
+    if(i===10&&a.lstL&&pr0)ex+=`<div class="x">할인 ${pc(a.disc)} · 수수료 ${(a.feeR*100).toFixed(1)}%p</div>`;
+    if(i>=10&&a.lstL&&pr0&&a.lstMiss.size)ex+=`<div class="x miss" title="${esc([...a.lstMiss].join(', '))}">기존가 미입력 ${a.lstMiss.size}개 제외</div>`;
+    if(i>=10&&!(a.lstL&&pr0))sub='<span>가격표에 기존 소비자가 미입력</span>';
+    return `<div class="kpi"><div class="l">${l}</div><div class="v">${v}${u?`<small>${u}</small>`:''}</div>${ex}<div class="d">${sub||'&nbsp;'}</div></div>`}).join('');
 
   // 일차별
   const cum=S.d==='cum';
@@ -740,13 +753,13 @@ function render(){
   const aK=S.b==='sup'?'itSup':'itPay',aL=S.b==='sup'?'올계 매출':'결제액',tot=a.packs||1;
   const trs=V.items.map((n,i)=>({n,i,t:a.single[i]+a.setU[i]})).filter(x=>S.items.has(x.i)&&live(x.i)).sort((x,y)=>y.t-x.t).map(x=>{const i=x.i;
     const pb=b?b.single[i]+b.setU[i]:null;
-    return `<tr><td class="t" style="min-width:84px">${esc(x.n)}</td>${hasSet?`<td>${nf(a.single[i])}</td><td>${a.setU[i]?nf(a.setU[i]):'–'}</td>`:''}<td><b>${nf(x.t)}</b></td><td>${pc(x.t/tot)}</td><td>${a.orders?pc(a.itemOrd[i]/a.orders):'–'}</td>${hasC?`<td>${dPct(x.t,pb)||'–'}</td>`:''}<td>${won(a[aK][i])}</td></tr>`}).join('');
+    return `<tr><td class="t" style="min-width:84px">${esc(x.n)}</td>${hasSet?`<td>${nf(a.single[i])}</td><td>${a.setU[i]?nf(a.setU[i]):'–'}</td>`:''}<td><b>${nf(x.t)}</b></td><td>${pc(x.t/tot)}</td><td>${a.orders?pc(a.itemOrd[i]/a.orders):'–'}</td>${hasC?`<td>${dPct(x.t,pb)||'–'}</td>`:''}<td>${won(a[aK][i])}</td><td>${a.itList[i]?pc(a.itSup[i]/a.itList[i]):'–'}</td></tr>`}).join('');
   const setAmt=S.b==='sup'?a.setSupT:a.setPayT;
-  const setTr=S.items.has(SET)?`<tr class="setrow"><td class="t">${esc(SETN)}<span>${NS}종 각 1팩 · 금액은 세트가</span></td><td>${nf(a.sets)}세트</td><td>–</td><td>–</td><td>–</td><td>${a.orders?pc(a.itemOrd[SET]/a.orders):'–'}</td>${hasC?`<td>${dPct(a.sets,b.sets)||'–'}</td>`:''}<td>${won(setAmt)}</td></tr>`:'';
-  $('#itTbl').innerHTML=`<thead><tr><th class="t">품목</th>${hasSet?'<th>단품</th><th>ALL세트분</th>':''}<th>${hasSet?'합계(팩)':'판매 팩'}</th><th>비중</th><th>주문 포함률</th>${hasC?`<th>${esc(GB.short)} 대비</th>`:''}<th>${aL}</th></tr></thead><tbody>${trs}${setTr}</tbody>`+
-    `<tfoot><tr><td class="t">합계</td>${hasSet?`<td>${nf(a.single.reduce((p,q)=>p+q,0))}</td><td>${nf(a.setU.reduce((p,q)=>p+q,0))}</td>`:''}<td>${nf(a.packs)}</td><td></td><td></td>${hasC?`<td>${dPct(a.packs,b.packs)}</td>`:''}<td>${won(S.b==='sup'?a.sup:a.pay)}</td></tr></tfoot>`;
+  const setTr=S.items.has(SET)?`<tr class="setrow"><td class="t">${esc(SETN)}<span>${NS}종 각 1팩 · 금액은 세트가</span></td><td>${nf(a.sets)}세트</td><td>–</td><td>–</td><td>–</td><td>${a.orders?pc(a.itemOrd[SET]/a.orders):'–'}</td>${hasC?`<td>${dPct(a.sets,b.sets)||'–'}</td>`:''}<td>${won(setAmt)}</td><td>${a.setListT?pc(a.setSupT/a.setListT):'–'}</td></tr>`:'';
+  $('#itTbl').innerHTML=`<thead><tr><th class="t">품목</th>${hasSet?'<th>단품</th><th>ALL세트분</th>':''}<th>${hasSet?'합계(팩)':'판매 팩'}</th><th>비중</th><th>주문 포함률</th>${hasC?`<th>${esc(GB.short)} 대비</th>`:''}<th>${aL}</th><th title="단품 올계 매출 ÷ (단품 수량 × 기존 소비자가). ALL세트분은 세트 행에서 따로 계산">기존가 대비 수취율</th></tr></thead><tbody>${trs}${setTr}</tbody>`+
+    `<tfoot><tr><td class="t">합계</td>${hasSet?`<td>${nf(a.single.reduce((p,q)=>p+q,0))}</td><td>${nf(a.setU.reduce((p,q)=>p+q,0))}</td>`:''}<td>${nf(a.packs)}</td><td></td><td></td>${hasC?`<td>${dPct(a.packs,b.packs)}</td>`:''}<td>${won(S.b==='sup'?a.sup:a.pay)}</td><td>${a.lstL?pc(a.rate):'–'}</td></tr></tfoot>`;
 
-  $('#foot').innerHTML=`집계 기준 · ${esc(V.name)}는 ${esc(RV[0].label)} 회차부터 집계해요. · 취소·반품(부분 반품 포함)은 모든 수치에서 빼고, 교환은 판매로 셉니다. · 금액은 수량 × 가격표로 계산해 쿠폰·배송비는 반영되지 않아요.${hasSet?` · ${esc(SETN)}는 수량을 구성 ${NS}종에 1팩씩 더하고, 금액은 세트가로 따로 잡아요.`:''} · 주문당 팩 수·결제액·품목 종류 수와 객단가는 품목 필터와 무관하게 주문 전체 기준이에요. ${hasSet?`품목 종류 수에서 ${esc(SETN)}는 1종으로 세요.`:''} · 고객은 이름·ID를 가린 고객키로만 구분해요.`;
+  $('#foot').innerHTML=`집계 기준 · ${esc(V.name)}는 ${esc(RV[0].label)} 회차부터 집계해요. · 취소·반품(부분 반품 포함)은 모든 수치에서 빼고, 교환은 판매로 셉니다. · 금액은 수량 × 가격표로 계산해 쿠폰·배송비는 반영되지 않아요.${hasSet?` · ${esc(SETN)}는 수량을 구성 ${NS}종에 1팩씩 더하고, 금액은 세트가로 따로 잡아요.`:''} · 주문당 팩 수·결제액·품목 종류 수와 객단가는 품목 필터와 무관하게 주문 전체 기준이에요. ${hasSet?`품목 종류 수에서 ${esc(SETN)}는 1종으로 세요.`:''} · 고객은 이름·ID를 가린 고객키로만 구분해요. · 기존 소비자가 대비 수취율 = 올계 매출 ÷ (수량 × 기존 소비자가). 원가를 뺀 이익률이 아니라 정가 대비 올계가 받은 비율이에요. 할인은 1 − 결제액 ÷ 기존가 금액, 수수료는 (결제액 − 올계 매출) ÷ 기존가 금액이라 수취율 + 할인 + 수수료 = 100%예요. 기존가가 비어 있는 품목은 분자·분모에서 모두 빼요.${hasSet?` ${esc(SETN)} 기존가는 가격표에 없으면 구성품 기존가 합으로 계산해요.`:''}`;
 }
 
 /* ---------- 연도별 공구 매출 (벤더·인플루언서 구분 없이 전체 회차, 회차 시작일의 연도 기준) ---------- */
