@@ -183,6 +183,26 @@ td.setrow,tr.setrow td{background:var(--set-soft)}
 .hb .ht i.f{background:var(--y-mid);border-radius:0 3px 3px 0}
 #allTbl th.t,#allTbl td.t{min-width:76px}
 #allTbl tr.cur td{background:var(--accent-soft);font-weight:600}
+#allTbl tr.cmprow td{background:color-mix(in srgb,var(--y-mid) 22%,transparent)}
+.msel{position:relative;display:inline-flex;max-width:100%}
+.msbtn{font:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;min-width:150px;max-width:min(300px,100%);display:flex;justify-content:space-between;gap:10px;align-items:center;cursor:pointer;text-align:left}
+.msbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msbtn i{font-style:normal;color:var(--muted);font-size:12px}
+.msbtn[aria-expanded="true"]{border-color:var(--accent)}
+.mspop{position:absolute;top:calc(100% + 4px);left:0;z-index:20;padding:4px;min-width:100%;width:max-content;max-width:min(420px,88vw);max-height:360px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.16);display:grid;gap:1px}
+.mspop[hidden]{display:none}
+.msi{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 8px;border-radius:5px;font-size:13px;cursor:pointer;color:var(--fg)}
+.msi:hover{background:var(--accent-soft)}
+.msi.dis{opacity:.45;cursor:default}.msi.dis:hover{background:none}
+.msi .ml{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msi .md{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.msclr{font:inherit;font-size:12.5px;text-align:left;border:0;background:none;color:var(--accent);padding:6px 8px;cursor:pointer;border-radius:5px}
+.msclr:disabled{color:var(--muted);cursor:default}
+.msn{font-size:11px;color:var(--muted);padding:6px 8px 4px;border-top:1px solid var(--line);margin-top:2px}
+.col.sep{border-left:1px dashed var(--muted);padding-left:3px}
+.heat th.sep,.heat td.sep{border-left:2px dashed var(--muted)}
+.heat th.seg0{text-align:center;font-size:11.5px;color:var(--fg2);border-left:2px dashed var(--muted)}
+.legend .note{font-size:11.5px;color:var(--muted)}
 @media (max-width:760px){.allr{grid-template-columns:minmax(0,1fr);gap:14px}.hb.three{grid-template-columns:66px minmax(0,1fr) 56px}}
 @media (max-width:1100px){.row.wide,.row.mid{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:760px){.row.even{grid-template-columns:minmax(0,1fr)}.cols.dense .bv{display:none}.cols{height:200px}.hb{grid-template-columns:66px minmax(0,1fr) 52px 58px;gap:6px}}
@@ -310,8 +330,8 @@ body.hasgc .wrap{padding-bottom:120px}
 
 <section class="filters" aria-label="필터">
   <div class="fg" id="fInfWrap" hidden><span class="t">인플루언서</span><span id="fInf" class="fg"></span></div>
-  <div class="fg"><label class="t" for="fRound">회차</label><select id="fRound"></select></div>
-  <div class="fg"><label class="t" for="fCmp">비교</label><select id="fCmp"></select></div>
+  <div class="fg"><span class="t" id="lRound">회차</span><span class="msel" id="mRound" data-k="sel"><button type="button" class="msbtn" aria-haspopup="true" aria-expanded="false" aria-labelledby="lRound"><span></span><i aria-hidden="true">▾</i></button><div class="mspop" role="group" aria-labelledby="lRound" hidden></div></span></div>
+  <div class="fg"><span class="t" id="lCmp">비교</span><span class="msel" id="mCmp" data-k="cmp"><button type="button" class="msbtn" aria-haspopup="true" aria-expanded="false" aria-labelledby="lCmp"><span></span><i aria-hidden="true">▾</i></button><div class="mspop" role="group" aria-labelledby="lCmp" hidden></div></span></div>
   <div class="fg"><span class="t">보기</span>
     <span class="seg" role="group" aria-label="수량 또는 금액"><button type="button" data-m="q">수량</button><button type="button" data-m="v">금액</button></span>
   </div>
@@ -459,39 +479,51 @@ function prep(){
   });
 }
 
-/* ---------- 상태 ---------- */
-function prevOf(ri){for(let k=ri-1;k>=0;k--)if(R[k].inf===R[ri].inf)return k;return ri-1}
-function freshS(keep){return {r:R.length-1,c:prevOf(R.length-1),m:keep?keep.m:'q',b:keep?keep.b:'sup',ct:'all',d:keep?keep.d:'day',items:new Set(NAMES.map((_,i)=>i))}}
+/* ---------- 상태: 회차 선택·비교는 RV 인덱스 집합 (여러 회차를 하나로 묶어 봄) ---------- */
+const vis=()=>R.map(r=>RV.indexOf(r));
+function prevRV(ri){const vs=vis(),me=RV[ri];for(let k=ri-1;k>=0;k--)if(vs.includes(k)&&RV[k].inf===me.inf)return k;for(let k=ri-1;k>=0;k--)if(vs.includes(k))return k;return -1}
+function freshS(keep){const vs=vis(),last=vs[vs.length-1],p=prevRV(last);
+  return {sel:new Set([last]),cmp:new Set(p>=0?[p]:[]),auto:true,m:keep?keep.m:'q',b:keep?keep.b:'sup',ct:'all',d:keep?keep.d:'day',items:new Set(NAMES.map((_,i)=>i))}}
+function autoCmp(){S.sel.forEach(x=>S.cmp.delete(x));if(!S.auto)return;const p=prevRV(Math.min(...S.sel));S.cmp=new Set(p>=0&&!S.sel.has(p)?[p]:[])}
+// 묶음: 고른 회차들을 날짜순으로 이어 붙인 하나의 회차처럼 다룸. 재구매 = 묶음의 가장 이른 회차 이전에 산 적이 있는 고객
+function grp(set){if(!set||!set.size)return null;const idx=[...set].sort((x,y)=>x-y),rs=idx.map(i=>RV[i]),lo=idx[0],prev=new Set();
+  for(let k=0;k<lo;k++)RV[k].custs.forEach(c=>prev.add(c));
+  const seg=[];let off=0;rs.forEach(r=>{seg.push({r,off});off+=r.days});
+  const custs=new Set();rs.forEach(r=>r.custs.forEach(c=>custs.add(c)));
+  return {idx,rs,seg,days:off,first:lo===0,prev,custs,lo,infs:[...new Set(rs.map(r=>r.inf).filter(Boolean))],priced:rs.every(r=>r.priced),multi:rs.length>1,
+    label:rs.map(r=>r.label).join(' + '),short:rs.length===1?rs[0].label:`${rs[rs.length-1].label} 외 ${rs.length-1}개`}}
+function dm(G,k){for(let s=G.seg.length-1;s>=0;s--)if(k>=G.seg[s].off)return {r:G.seg[s].r,i:k-G.seg[s].off,s};return null}
 
 /* ---------- 집계 ---------- */
-function agg(ri,ct){
-  const r=R[ri],sel=S.items,z=n=>Array(n).fill(0);
-  const a={r,single:z(NI),setU:z(NI),sets:0,pay:0,sup:0,packs:0,itPay:z(NI),itSup:z(NI),
-    dayQ:z(r.days),dayPay:z(r.days),daySup:z(r.days),hrQ:z(24),hrPay:z(24),hrSup:z(24),
-    itemDay:V.items.map(()=>z(r.days)),itemOrd:z(NI+1),orders:0,custs:new Set(),repC:new Set(),oPay:[],oPacks:[],oKinds:[]};
-  for(const o of r.orders){
-    if(ct==='new'&&o.rep)continue; if(ct==='rep'&&!o.rep)continue;
-    let hit=false;const seen=new Set();const di=o.d-1;
+function agg(G,ct){
+  const sel=S.items,z=n=>Array(n).fill(0),ND=G.days;
+  const a={G,single:z(NI),setU:z(NI),sets:0,setPayT:0,setSupT:0,pay:0,sup:0,packs:0,itPay:z(NI),itSup:z(NI),openQ:0,
+    dayQ:z(ND),dayPay:z(ND),daySup:z(ND),hrQ:z(24),hrPay:z(24),hrSup:z(24),
+    itemDay:V.items.map(()=>z(ND)),itemOrd:z(NI+1),orders:0,custs:new Set(),repC:new Set(),oPay:[],oPacks:[],oKinds:[]};
+  for(const {r,off} of G.seg)for(const o of r.orders){
+    const rep=G.prev.has(o.c);
+    if(ct==='new'&&rep)continue; if(ct==='rep'&&!rep)continue;
+    let hit=false;const seen=new Set();const di=off+o.d-1;
     for(const [i,q] of o.L){
       if(!sel.has(i))continue; hit=true;
       if(i===SET){
-        a.sets+=q;const p=q*r.setPay,s=q*r.setSup;a.pay+=p;a.sup+=s;a.dayPay[di]+=p;a.daySup[di]+=s;seen.add(SET);
+        a.sets+=q;const p=q*r.setPay,s=q*r.setSup;a.pay+=p;a.sup+=s;a.setPayT+=p;a.setSupT+=s;a.dayPay[di]+=p;a.daySup[di]+=s;seen.add(SET);
         if(o.d===1){a.hrPay[o.h]+=p;a.hrSup[o.h]+=s}
-        for(const j of V.setItems){if(!sel.has(j))continue;a.setU[j]+=q;a.packs+=q;a.dayQ[di]+=q;a.itemDay[j][di]+=q;seen.add(j);if(o.d===1)a.hrQ[o.h]+=q}
+        for(const j of V.setItems){if(!sel.has(j))continue;a.setU[j]+=q;a.packs+=q;a.dayQ[di]+=q;a.itemDay[j][di]+=q;seen.add(j);if(o.d===1){a.hrQ[o.h]+=q;a.openQ+=q}}
       }else{
         const p=q*r.pay[i],s=q*r.sup[i];a.single[i]+=q;a.itPay[i]+=p;a.itSup[i]+=s;a.pay+=p;a.sup+=s;a.packs+=q;
         a.dayQ[di]+=q;a.dayPay[di]+=p;a.daySup[di]+=s;a.itemDay[i][di]+=q;seen.add(i);
-        if(o.d===1){a.hrQ[o.h]+=q;a.hrPay[o.h]+=p;a.hrSup[o.h]+=s}
+        if(o.d===1){a.hrQ[o.h]+=q;a.hrPay[o.h]+=p;a.hrSup[o.h]+=s;a.openQ+=q}
       }
     }
-    if(hit){a.orders++;a.custs.add(o.c);if(o.rep)a.repC.add(o.c);a.oPay.push(o.pay);a.oPacks.push(o.packs);a.oKinds.push(o.kinds);seen.forEach(i=>a.itemOrd[i]++)}
+    if(hit){a.orders++;a.custs.add(o.c);if(rep)a.repC.add(o.c);a.oPay.push(o.pay);a.oPacks.push(o.packs);a.oKinds.push(o.kinds);seen.forEach(i=>a.itemOrd[i]++)}
   }
   const n=a.orders;
   a.aov=n?a.oPay.reduce((x,y)=>x+y,0)/n:NaN;
   a.avgPacks=n?a.oPacks.reduce((x,y)=>x+y,0)/n:NaN;
   a.free=n&&V.freeShip?a.oPay.filter(v=>v>=V.freeShip).length/n:NaN;
   a.repShare=a.custs.size?a.repC.size/a.custs.size:NaN;
-  a.d1=a.packs?a.dayQ[0]/a.packs:NaN;
+  a.d1=a.packs?a.openQ/a.packs:NaN;
   return a;
 }
 
@@ -504,6 +536,7 @@ function pill(x,t){const c=Math.abs(x)<0.05?'nt':x>0?'up':'dn';return `<span cla
 function dPct(a,b){if(b==null||!isFinite(a)||!isFinite(b)||b===0)return '';const x=(a-b)/b*100;return pill(x,(x>0?'+':'')+x.toFixed(1)+'%')}
 function dPp(a,b){if(b==null||!isFinite(a)||!isFinite(b))return '';const x=(a-b)*100;return pill(x,(x>0?'+':'')+x.toFixed(1)+'%p')}
 const tipAttr=h=>` data-tip="${esc(h)}"`;
+const mdOf=(r,i)=>{const d=new Date(r.start+'T00:00:00');d.setDate(d.getDate()+i);return `${d.getMonth()+1}/${d.getDate()}`};
 function dayLabel(r,i){const d=new Date(r.start+'T00:00:00');d.setDate(d.getDate()+i);return `${d.getMonth()+1}/${d.getDate()}(${WD[d.getDay()]})`}
 const mLbl=()=>S.m==='q'?'팩':(S.b==='sup'?'올계 매출':'결제액');
 const fmtM=v=>S.m==='q'?nf(v):won(v);
@@ -518,51 +551,52 @@ function cols(el,cats,series,opt){
       const lab=(!s.cmp&&!opt.nolab&&(v>0||opt.zero))?`<span class="bv">${opt.fmt(v)}</span>`:'';
       const tip=`<b>${esc(c.tip||c.l)}</b>`+series.map(t=>`<div class="r"><span>${esc(t.name)}</span><b>${opt.fmt(t.vals[i]||0)}</b></div>`).join('');
       return `<div class="bar ${cls}" style="height:${h.toFixed(2)}%"${tipAttr(tip)}>${lab}</div>`}).join('');
-    return `<div class="col"><div class="bars">${bars}</div><div class="cl">${esc(c.l)}${c.s?`<small>${esc(c.s)}</small>`:''}</div></div>`}).join('')+'</div>';
+    return `<div class="col${c.sep?' sep':''}"><div class="bars">${bars}</div><div class="cl">${esc(c.l)}${c.s?`<small>${esc(c.s)}</small>`:''}</div></div>`}).join('')+'</div>';
 }
 const lg=(el,arr)=>{el.innerHTML=arr.map(([c,t])=>`<span><i style="background:var(${c})"></i>${esc(t)}</span>`).join('')};
 
 /* ---------- 렌더 ---------- */
 function render(){
   renderYear();
-  if(R[S.r].first)S.ct='all';
-  const r=R[S.r],noHist=S.ct!=='all'&&S.c>=0&&!!R[S.c]&&R[S.c].first,hasC=S.c>=0&&S.c!==S.r&&!!R[S.c]&&!noHist,rc=hasC?R[S.c]:null;
-  const a=agg(S.r,S.ct),b=hasC?agg(S.c,S.ct):null;
-  const cl=hasC?rc.label:'';
+  const GA=grp(S.sel),GB0=grp(S.cmp);
+  if(GA.first)S.ct='all';
+  const noHist=S.ct!=='all'&&!!GB0&&GB0.first,hasC=!!GB0&&!noHist,GB=hasC?GB0:null;
+  const a=agg(GA,S.ct),b=hasC?agg(GB,S.ct):null;
+  const cl=hasC?GB.label:'';
 
   // 머리말
   $('#srcLbl').textContent=`취소·반품 제외 · 반영 ${DATA.builtAt} · [개발자 : 정현우]`;
   const np=[...new Set(R.flatMap(x=>x.noPrice||[]))];
   $('#warn').hidden=!np.length;$('#warn').textContent=np.length?`${V.name} 가격표에 가격이 없는 품목 ${np.length}개는 금액이 0원으로 계산돼요. 구글 시트 "가격표" 탭에 공구 소비자가와 공급가를 넣고 반영하면 금액 지표가 채워져요. (${np.join(', ')})`:'';
   $$('#fInf .chip').forEach(x=>x.setAttribute('aria-pressed',x.dataset.inf===INF));
-  $('#periodLbl').textContent=`${V.name} ${r.label} · ${dayLabel(r,0)} ~ ${dayLabel(r,r.days-1)} · ${r.days}일`+(hasC?` · 비교 ${cl}`:noHist?` · 첫 회차는 이전 이력이 없어 고객 필터 비교 생략`:'');
+  $('#periodLbl').textContent=`${V.name} ${GA.label} · ${GA.rs.map(x=>dayLabel(x,0)+' ~ '+dayLabel(x,x.days-1)).join(', ')} · ${GA.days}일`+(hasC?` · 비교 ${cl}`:noHist?` · 첫 회차는 이전 이력이 없어 고객 필터 비교 생략`:'');
 
   // 필터 상태
-  $('#fRound').value=S.r;$('#fCmp').value=hasC?S.c:-1;
+  drawPick();
   $$('[data-m]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.m===S.m));
   $$('[data-b]').forEach(x=>{x.setAttribute('aria-pressed',x.dataset.b===S.b)});
-  $$('[data-c]').forEach(x=>{x.setAttribute('aria-pressed',x.dataset.c===S.ct);x.disabled=(x.dataset.c!=='all'&&r.first)});
+  $$('[data-c]').forEach(x=>{x.setAttribute('aria-pressed',x.dataset.c===S.ct);x.disabled=(x.dataset.c!=='all'&&GA.first)});
   $$('[data-d]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.d===S.d));
   $$('#fIt .chip').forEach(x=>x.setAttribute('aria-pressed',S.items.has(+x.dataset.i)));
   $('#fItAll').checked=S.items.size===NAMES.length;$('#fItAll').indeterminate=S.items.size>0&&S.items.size<NAMES.length;
 
   // KPI
-  const cv=(t)=>hasC?`<span>${esc(cl)} ${t}</span>`:'';
-  const pr0=r.priced||a.pay>0,hasSet=SET>=0;
+  const cv=(t)=>hasC?`<span>${esc(GB.short)} ${t}</span>`:'';
+  const pr0=GA.priced||a.pay>0,hasSet=SET>=0;
   const K=[
     ['올계 매출',pr0?won(a.sup):'–',pr0?'원':'',dPct(a.sup,b&&b.sup),b&&won(b.sup)],
     ['결제액',pr0?won(a.pay):'–',pr0?'원':'',dPct(a.pay,b&&b.pay),b&&won(b.pay)],
     ['판매 팩 수',nf(a.packs),'팩',dPct(a.packs,b&&b.packs),b&&nf(b.packs)],
-    hasSet?[SETN+' 판매',S.items.has(SET)?nf(a.sets):'–',S.items.has(SET)?'세트':'',dPct(a.sets,b&&b.sets),b&&S.items.has(SET)&&nf(b.sets)]:['인플루언서',esc(r.inf||'–'),'','',''],
+    hasSet?[SETN+' 판매',S.items.has(SET)?nf(a.sets):'–',S.items.has(SET)?'세트':'',dPct(a.sets,b&&b.sets),b&&S.items.has(SET)&&nf(b.sets)]:['인플루언서',esc(GA.infs.join(', ')||'–'),'','',''],
     ['주문 수',nf(a.orders),'건',dPct(a.orders,b&&b.orders),b&&nf(b.orders)],
     ['객단가',isFinite(a.aov)&&pr0?nf(a.aov):'–',isFinite(a.aov)&&pr0?'원':'',dPct(a.aov,b&&b.aov),b&&isFinite(b.aov)&&nf(b.aov)],
     [FS?FS+' 이상 주문 비중':'무료배송 기준 이상 주문 비중',pc(a.free),'',dPp(a.free,b&&b.free),FS&&b&&pc(b.free)],
     ['고객 수',nf(a.custs.size),'명',dPct(a.custs.size,b&&b.custs.size),b&&nf(b.custs.size)],
-    ['재구매 고객 비중',r.first?'–':pc(a.repShare),'',r.first||(hasC&&rc.first)?'':dPp(a.repShare,b&&b.repShare),r.first?'':(b&&!rc.first&&pc(b.repShare))],
-    ['1일차 판매 비중',pc(a.d1),'',dPp(a.d1,b&&b.d1),b&&pc(b.d1)]];
+    ['재구매 고객 비중',GA.first?'–':pc(a.repShare),'',GA.first||(hasC&&GB.first)?'':dPp(a.repShare,b&&b.repShare),GA.first?'':(b&&!GB.first&&pc(b.repShare))],
+    [GA.multi?'오픈일 판매 비중':'1일차 판매 비중',pc(a.d1),'',dPp(a.d1,b&&b.d1),b&&pc(b.d1)]];
   $('#kpis').innerHTML=K.map(([l,v,u,d,c],i)=>{
     let sub=(d||'')+(c?cv(c):'');
-    if(i===8&&r.first)sub='<span>첫 집계 회차라 이전 이력 없음</span>';
+    if(i===8&&GA.first)sub='<span>첫 집계 회차라 이전 이력 없음</span>';
     if(i===3&&hasSet&&!S.items.has(SET))sub='<span>품목 필터에서 제외됨</span>';
     if(i===6&&!FS)sub='<span>무료배송 기준 미입력</span>';
     if((i<2||i===5)&&!pr0)sub='<span>가격표 미입력</span>';
@@ -571,29 +605,33 @@ function render(){
   // 일차별
   const cum=S.d==='cum';
   const dv=x=>{const v=pick(x,'day');if(!cum)return v;const t=v.reduce((p,q)=>p+q,0)||1;let s=0;return v.map(q=>(s+=q)/t)};
-  const nd=Math.max(r.days,hasC?rc.days:0);
-  const cats=[...Array(nd)].map((_,i)=>({l:`${i+1}일차`,s:i<r.days?dayLabel(r,i):'',tip:`${i+1}일차`}));
-  const ser=[];if(hasC)ser.push({name:cl,vals:dv(b),cmp:1});ser.push({name:r.label,vals:dv(a)});
+  const nd=Math.max(GA.days,hasC?GB.days:0);
+  const cats=[...Array(nd)].map((_,k)=>{const m=k<GA.days?dm(GA,k):null,mb=hasC&&k<GB.days?dm(GB,k):null;
+    const tip=(m?`${GA.multi?m.r.label+' ':''}${m.i+1}일차 · ${dayLabel(m.r,m.i)}`:`${k+1}번째 판매일`)+(mb&&(GA.multi||GB.multi)?` / 비교: ${mb.r.label} ${mb.i+1}일차`:'');
+    return {l:m?`${m.i+1}일차`:(GA.multi?'':`${k+1}일차`),s:m?mdOf(m.r,m.i):'',tip,sep:!!m&&m.s>0&&m.i===0}});
+  const ser=[];if(hasC)ser.push({name:cl,vals:dv(b),cmp:1});ser.push({name:GA.label,vals:dv(a)});
   cols($('#dayCh'),cats,ser,{fmt:cum?v=>pc(v):fmtM});
   $('#dayTtl').textContent=`일차별 판매 (${cum?mLbl()+' 누적 비중':mLbl()})`;
-  lg($('#dayLg'),hasC?[['--accent',r.label],['--y-mid',cl]]:[['--accent',r.label]]);
+  lg($('#dayLg'),(hasC?[['--accent',GA.label],['--y-mid',cl]]:[['--accent',GA.label]]));
+  if(GA.multi||(hasC&&GB.multi))$('#dayLg').insertAdjacentHTML('beforeend',`<span class="note">점선은 회차 경계 · 회차를 날짜순으로 이어 붙이고, 비교는 n번째 판매일끼리 맞춰요</span>`);
 
   // 1일차 시간대
   const hv=x=>pick(x,'hr');let h0=24,h1=0;[a,b].forEach(x=>{if(!x)return;hv(x).forEach((v,h)=>{if(v>0){h0=Math.min(h0,h);h1=Math.max(h1,h)}})});
   if(h0>h1){h0=10;h1=23}
-  const hc=[];for(let h=h0;h<=h1;h++)hc.push({l:String(h),tip:`1일차 ${h}시대`});
-  const hs=[];if(hasC)hs.push({name:cl,vals:hv(b).slice(h0,h1+1),cmp:1});hs.push({name:r.label,vals:hv(a).slice(h0,h1+1)});
+  const hc=[];for(let h=h0;h<=h1;h++)hc.push({l:String(h),tip:`${(GA.multi||(hasC&&GB.multi))?'오픈일':'1일차'} ${h}시대`});
+  const hs=[];if(hasC)hs.push({name:cl,vals:hv(b).slice(h0,h1+1),cmp:1});hs.push({name:GA.label,vals:hv(a).slice(h0,h1+1)});
   cols($('#hrCh'),hc,hs,{fmt:fmtM,cls:'dense',nolab:S.m!=='q'});
-  $('#hrTtl').textContent=`1일차 시간대별 판매 (${mLbl()})`;
-  lg($('#hrLg'),hasC?[['--accent',r.label],['--y-mid',cl]]:[['--accent',r.label]]);
+  const anyMulti=GA.multi||(hasC&&GB.multi),d1w=anyMulti?'오픈일':'1일차';
+  $('#hrTtl').textContent=`${d1w} 시간대별 판매 (${mLbl()})`;
+  lg($('#hrLg'),hasC?[['--accent',GA.label],['--y-mid',cl]]:[['--accent',GA.label]]);
   const tot1=hv(a).reduce((p,q)=>p+q,0),first=hv(a)[h0]||0;
-  $('#hrNote').textContent=tot1?`가로축은 시각(시). 오픈 첫 1시간(${h0}시대)에 1일차 판매의 ${pc(first/tot1,0)}가 나갔어요.`+(S.m!=='q'?' 막대에 올리면 금액이 보여요.':''):'';
+  $('#hrNote').textContent=(tot1?`가로축은 시각(시). 오픈 첫 1시간(${h0}시대)에 ${d1w} 판매의 ${pc(first/tot1,0)}가 나갔어요.`+(S.m!=='q'?' 막대에 올리면 금액이 보여요.':''):'')+(anyMulti?' 여러 회차를 묶으면 각 회차의 1일차(오픈일)를 시간대별로 합쳐요.':'');
 
   // 전체 회차 지표 (필터와 무관)
   const AR=R.map(x=>({l:x.label,inf:x.inf,n:x.orders.length,pk:x.orders.reduce((p,o)=>p+o.packs,0),pay:x.orders.reduce((p,o)=>p+o.pay,0),sup:x.orders.reduce((p,o)=>p+o.sup,0)}));
   const tp=AR.reduce((p,x)=>p+x.pay,0),ts=AR.reduce((p,x)=>p+x.sup,0),amx=Math.max(1,...AR.map(x=>x.pay));
   $('#allTbl').innerHTML='<thead><tr><th class="t">회차</th><th>결제액</th><th>매출액</th><th>수수료</th></tr></thead><tbody>'+
-    AR.map((x,i)=>`<tr${i===S.r?' class="cur"':''}><td class="t">${esc(x.l)}</td><td>${nf(x.pay)}</td><td>${nf(x.sup)}</td><td>${nf(x.pay-x.sup)}</td></tr>`).join('')+
+    AR.map((x,i)=>{const ri=RV.indexOf(R[i]);return `<tr${S.sel.has(ri)?' class="cur"':S.cmp.has(ri)?' class="cmprow"':''}><td class="t">${esc(x.l)}</td><td>${nf(x.pay)}</td><td>${nf(x.sup)}</td><td>${nf(x.pay-x.sup)}</td></tr>`}).join('')+
     `</tbody><tfoot><tr><td class="t">합계</td><td>${nf(tp)}</td><td>${nf(ts)}</td><td>${nf(tp-ts)}</td></tr></tfoot>`;
   $('#allCh').innerHTML=AR.map(x=>{const tip=`<b>${esc(x.l)}</b><div class="r"><span>결제액</span><b>${nf(x.pay)}</b></div><div class="r"><span>매출액</span><b>${nf(x.sup)}</b></div><div class="r"><span>수수료</span><b>${nf(x.pay-x.sup)}</b></div>`;
     return `<div class="hb three"${tipAttr(tip)}><div class="hn">${esc(x.l)}</div><div class="ht"><i style="width:${(x.sup/amx*100).toFixed(2)}%"></i><i class="f" style="width:${((x.pay-x.sup)/amx*100).toFixed(2)}%"></i></div><div class="hv">${won(x.pay)}</div></div>`}).join('');
@@ -615,32 +653,32 @@ function render(){
     const bar=(l,f,t,c,txt,tc)=>`<div class="hb wf"><div class="hn">${esc(l)}</div><div class="ht"><i class="${c}" style="margin-left:${(Math.min(f,t)/mx2*100).toFixed(2)}%;width:${Math.max(0.4,Math.abs(t-f)/mx2*100).toFixed(2)}%"></i></div><div class="hv ${tc||''}">${txt}</div></div>`;
     const ec=v=>v>0?'up':v<0?'dn':'c',dir=v=>Math.round(v)>0?'증가':Math.round(v)<0?'감소':'변동 없음';
     dh+=`<div class="say">${esc(cl)} 대비 ${vL} <b>${sg(V1-V0)}</b> (${(V1>V0?'+':V1<V0?'−':'')+Math.abs((V1-V0)/V0*100).toFixed(1)}%). 객수 <b>${nf(N0)}건 → ${nf(N1)}건</b>, 객단가(${vL} 기준) <b>${nf(A0)}원 → ${nf(A1)}원</b></div>`+
-      `<div class="hbs">${bar(cl,0,V0,'c',won(V0))}${bar('객수 '+dir(eN),V0,mid,ec(eN),sg(eN),ec(eN))}${bar('객단가 '+dir(eA),mid,V1,ec(eA),sg(eA),ec(eA))}${bar(r.label,0,V1,'',won(V1))}</div>`+
+      `<div class="hbs">${bar(GB.short,0,V0,'c',won(V0))}${bar('객수 '+dir(eN),V0,mid,ec(eN),sg(eN),ec(eN))}${bar('객단가 '+dir(eA),mid,V1,ec(eA),sg(eA),ec(eA))}${bar(GA.short,0,V1,'',won(V1))}</div>`+
       `<div class="note">객수는 주문 건수, 객단가는 주문 1건당 ${vL}이에요. 객수와 객단가 증감을 더하면 전체 증감과 같아요.</div>`;
   }else dh+=`<div class="empty">${noHist?'첫 회차는 이전 이력이 없어 고객 필터를 건 상태로는 비교할 수 없어요.':'비교 회차를 고르면 증감 요인이 나와요.'}</div>`;
-  if(r.first)dh+=`<div class="note">첫 집계 회차라 신규·재구매 고객 매출은 나뉘지 않아요.</div>`;
+  if(GA.first)dh+=`<div class="note">첫 집계 회차라 신규·재구매 고객 매출은 나뉘지 않아요.</div>`;
   else if(pr0){
-    const nN=agg(S.r,'new'),nR=agg(S.r,'rep'),tt=(nN[vk]+nR[vk])||1,cmpOk=S.c>=0&&S.c!==S.r&&!!R[S.c]&&!R[S.c].first,cN=cmpOk?agg(S.c,'new'):null,cR=cmpOk?agg(S.c,'rep'):null,cLb=cmpOk?R[S.c].label:'';
+    const nN=agg(GA,'new'),nR=agg(GA,'rep'),tt=(nN[vk]+nR[vk])||1,cmpOk=!!GB0&&!GB0.first,cN=cmpOk?agg(GB0,'new'):null,cR=cmpOk?agg(GB0,'rep'):null,cLb=cmpOk?GB0.short:'';
     const row=(t,g,c)=>`<tr><td class="t">${t}</td><td>${won(g[vk])}</td><td>${pc(g[vk]/tt)}</td><td>${nf(g.orders)}</td>${cmpOk?`<td>${dPct(g[vk],c[vk])||'–'}</td>`:''}</tr>`;
-    dh+=`<div class="tbl"><table><thead><tr><th class="t">${esc(r.label)}</th><th>${vL}</th><th>비중</th><th>주문</th>${cmpOk?`<th>${esc(cLb)} 대비</th>`:''}</tr></thead><tbody>${row('신규 고객',nN,cN)}${row('재구매 고객',nR,cR)}</tbody></table></div>`;
+    dh+=`<div class="tbl"><table><thead><tr><th class="t">${esc(GA.short)}</th><th>${vL}</th><th>비중</th><th>주문</th>${cmpOk?`<th>${esc(cLb)} 대비</th>`:''}</tr></thead><tbody>${row('신규 고객',nN,cN)}${row('재구매 고객',nR,cR)}</tbody></table></div>`;
   }
   $('#drvBox').innerHTML=dh;
 
   // 고객 매출 집중도 (필터와 무관)
   $('#conTtl').textContent=`고객 매출 집중도 (${vL})`;
   const cm=new Map();R.forEach((x,ri)=>x.orders.forEach(o=>{let e=cm.get(o.c);if(!e){e={v:0,rs:new Set()};cm.set(o.c,e)}e.v+=o[vk];e.rs.add(ri)}));
-  const cur=new Map();r.orders.forEach(o=>cur.set(o.c,(cur.get(o.c)||0)+o[vk]));
+  const cur=new Map();GA.rs.forEach(x=>x.orders.forEach(o=>cur.set(o.c,(cur.get(o.c)||0)+o[vk])));
   const topS=(vals,p)=>{const v=vals.slice().sort((x,y)=>y-x),n=Math.max(1,Math.ceil(v.length*p)),t=v.reduce((x,y)=>x+y,0)||1;return v.slice(0,n).reduce((x,y)=>x+y,0)/t};
   const cvA=[...cur.values()],cvB=[...cm.values()].map(e=>e.v),allV=cvB.reduce((x,y)=>x+y,0)||1;
   const cRow=(t,v)=>`<tr><td class="t">${t}<span>${nf(v.length)}명</span></td>${[0.1,0.2,0.5].map(p=>`<td>${pc(topS(v,p))}</td>`).join('')}</tr>`;
-  const grp=[];cm.forEach(e=>{const k=Math.min(e.rs.size,3)-1;(grp[k]=grp[k]||{n:0,v:0});grp[k].n++;grp[k].v+=e.v});
+  const byN=[];cm.forEach(e=>{const k=Math.min(e.rs.size,3)-1;(byN[k]=byN[k]||{n:0,v:0});byN[k].n++;byN[k].v+=e.v});
   const gl=['1개 회차만 구매','2개 회차 구매','3개 회차 이상 구매'];
-  const multi=grp.slice(1).reduce((p,g)=>g?{n:p.n+g.n,v:p.v+g.v}:p,{n:0,v:0});
+  const multi=byN.slice(1).reduce((p,g)=>g?{n:p.n+g.n,v:p.v+g.v}:p,{n:0,v:0});
   if(!(cvB.reduce((x,y)=>x+y,0)>0))$('#conBox').innerHTML='<div class="empty">가격표에 가격이 들어가면 고객 매출 집중도가 계산돼요.</div>';
   else $('#conBox').innerHTML=(R.length>1?`<div class="say">2개 회차 이상 구매한 고객 <b>${nf(multi.n)}명</b>(${pc(multi.n/cm.size)})이 누적 ${vL}의 <b>${pc(multi.v/allV)}</b>를 차지해요.</div>`:'')+
-    `<div class="tbl"><table><thead><tr><th class="t">매출 상위 고객의 비중</th><th>상위 10%</th><th>상위 20%</th><th>상위 50%</th></tr></thead><tbody>${cRow(esc(r.label),cvA)}${R.length>1?cRow('전체 회차 누적',cvB):''}</tbody></table></div>`+
+    `<div class="tbl"><table><thead><tr><th class="t">매출 상위 고객의 비중</th><th>상위 10%</th><th>상위 20%</th><th>상위 50%</th></tr></thead><tbody>${cRow(esc(GA.label),cvA)}${R.length>1?cRow('전체 회차 누적',cvB):''}</tbody></table></div>`+
     `<div class="tbl"><table><thead><tr><th class="t">구매 회차 수</th><th>고객</th><th>누적 ${vL}</th><th>매출 비중</th><th>고객당 누적</th></tr></thead><tbody>`+
-    grp.map((g,k)=>g?`<tr><td class="t">${gl[k]}</td><td>${nf(g.n)}명</td><td>${won(g.v)}</td><td>${pc(g.v/allV)}</td><td>${nf(g.v/g.n)}원</td></tr>`:'').join('')+`</tbody></table></div>`+
+    byN.map((g,k)=>g?`<tr><td class="t">${gl[k]}</td><td>${nf(g.n)}명</td><td>${won(g.v)}</td><td>${pc(g.v/allV)}</td><td>${nf(g.v/g.n)}원</td></tr>`:'').join('')+`</tbody></table></div>`+
     `<div class="note">상위 10%는 ${vL}이 큰 순서로 고객을 줄 세웠을 때 앞쪽 10%가 전체에서 차지하는 비중이에요.</div>`;
 
   // 품목별
@@ -649,28 +687,30 @@ function render(){
   const live=i=>(a.single[i]+a.setU[i])>0||(b&&(b.single[i]+b.setU[i])>0);
   let rows=V.items.map((n,i)=>({n,i,v:va[i],s:qMode?a.setU[i]:0,c:vb?vb[i]:null})).filter(x=>S.items.has(x.i)&&live(x.i));
   rows.sort((x,y)=>y.v-x.v);
-  if(!qMode&&S.items.has(SET)){const sv=x=>x.sets*(S.b==='sup'?x.r.setSup:x.r.setPay);rows.push({n:SETN,i:SET,v:sv(a),s:sv(a),c:b?sv(b):null,isSet:1})}
+  if(!qMode&&S.items.has(SET)){const sv=x=>S.b==='sup'?x.setSupT:x.setPayT;rows.push({n:SETN,i:SET,v:sv(a),s:sv(a),c:b?sv(b):null,isSet:1})}
   const mx=Math.max(1e-9,...rows.map(x=>Math.max(x.v,x.c||0)));
   $('#itCh').innerHTML=rows.length?rows.map(x=>{
     const w1=(x.v-x.s)/mx*100,w2=x.s/mx*100;
-    const tip=`<b>${esc(x.n)}</b>`+(qMode?(hasSet?`<div class="r"><span>단품</span><b>${nf(x.v-x.s)}</b></div><div class="r"><span>ALL세트분</span><b>${nf(x.s)}</b></div><div class="r"><span>합계</span><b>${nf(x.v)}</b></div>`:`<div class="r"><span>${esc(r.label)}</span><b>${nf(x.v)}</b></div>`):`<div class="r"><span>${r.label}</span><b>${won(x.v)}</b></div>`)+(x.c!=null?`<div class="r"><span>${cl}</span><b>${fmtM(x.c)}</b></div>`:'');
+    const tip=`<b>${esc(x.n)}</b>`+(qMode?(hasSet?`<div class="r"><span>단품</span><b>${nf(x.v-x.s)}</b></div><div class="r"><span>ALL세트분</span><b>${nf(x.s)}</b></div><div class="r"><span>합계</span><b>${nf(x.v)}</b></div>`:`<div class="r"><span>${esc(GA.short)}</span><b>${nf(x.v)}</b></div>`):`<div class="r"><span>${esc(GA.short)}</span><b>${won(x.v)}</b></div>`)+(x.c!=null?`<div class="r"><span>${esc(GB.short)}</span><b>${fmtM(x.c)}</b></div>`:'');
     return `<div class="hb"${tipAttr(tip)}><div class="hn">${esc(x.n)}</div><div class="ht">${w1>0?`<i style="width:${w1.toFixed(2)}%"></i>`:''}${w2>0?`<i class="s" style="width:${w2.toFixed(2)}%"></i>`:''}${x.c!=null?`<b style="left:calc(${(x.c/mx*100).toFixed(2)}% - 1px)"></b>`:''}</div><div class="hv">${fmtM(x.v)}</div><div class="hd2">${dPct(x.v,x.c)}</div></div>`}).join(''):'<div class="empty">선택한 품목이 없어요.</div>';
   $('#itTtl').textContent=`품목별 판매 (${mLbl()})`;$('#heatNote').textContent=hasSet?'(팩, ALL세트분 포함)':'(팩)';
-  const L=hasSet?[['--accent',qMode?'단품':'단품 '+mLbl()],['--set',qMode?'ALL세트분':'ALL세트 (별도 행)']]:[['--accent',r.label]];
+  const L=hasSet?[['--accent',qMode?'단품':'단품 '+mLbl()],['--set',qMode?'ALL세트분':'ALL세트 (별도 행)']]:[['--accent',GA.label]];
   $('#itLg').innerHTML=L.map(([c,t])=>`<span><i style="background:var(${c})"></i>${esc(t)}</span>`).join('')+(hasC?`<span><i style="background:var(--fg);opacity:.55;width:2px"></i>${esc(cl)} 실적</span>`:'');
 
-  // 품목 × 일차
+  // 품목 × 일차 (묶음이면 회차를 날짜순으로 이어 붙임)
+  const lastOf=i=>{let best=null,cutR=null;GA.rs.forEach(x=>{const l=x.last[i];if(l&&(!best||l>best)){best=l;cutR=x}});return {l:best,cut:!!(cutR&&cutR.cut[i])}};
   const hrows=V.items.map((n,i)=>({n,i,d:a.itemDay[i],t:a.itemDay[i].reduce((p,q)=>p+q,0)})).filter(x=>S.items.has(x.i)&&x.t>0).sort((x,y)=>y.t-x.t);
-  $('#heat').innerHTML=`<thead><tr><th class="t">품목</th>${[...Array(r.days)].map((_,i)=>`<th>${i+1}일차<small>${dayLabel(r,i)}</small></th>`).join('')}<th>합계</th><th>마지막 주문</th></tr></thead><tbody>`+
-    hrows.map(x=>{const cut=r.cut[x.i],m=Math.max(1,...x.d);
-      return `<tr><td class="t">${esc(x.n)}</td>`+x.d.map((v,di)=>{
-        if(cut&&di>=cut)return `<td class="c cut">${nf(v)}</td>`;
-        return `<td class="c" style="background:color-mix(in srgb,var(--accent) ${(v/m*38).toFixed(0)}%,transparent)">${nf(v)}</td>`}).join('')+
-        `<td><b>${nf(x.t)}</b></td><td>${cut?`<span class="pill wn">${esc(r.last[x.i]||'')}</span>`:esc(r.last[x.i]||'–')}</td></tr>`}).join('')+
+  const segHead=GA.multi?`<tr><th class="t"></th>${GA.seg.map(g=>`<th colspan="${g.r.days}" class="seg0">${esc(g.r.label)}</th>`).join('')}<th></th><th></th></tr>`:'';
+  $('#heat').innerHTML=`<thead>${segHead}<tr><th class="t">품목</th>${[...Array(GA.days)].map((_,k)=>{const m=dm(GA,k);return `<th${m.s>0&&m.i===0?' class="sep"':''}>${m.i+1}일차<small>${dayLabel(m.r,m.i)}</small></th>`}).join('')}<th>합계</th><th>마지막 주문</th></tr></thead><tbody>`+
+    hrows.map(x=>{const m=Math.max(1,...x.d),L=lastOf(x.i);
+      return `<tr><td class="t">${esc(x.n)}</td>`+x.d.map((v,k)=>{const q=dm(GA,k),cut=q.r.cut[x.i],sp=q.s>0&&q.i===0?' sep':'';
+        if(cut&&q.i>=cut)return `<td class="c cut${sp}">${nf(v)}</td>`;
+        return `<td class="c${sp}" style="background:color-mix(in srgb,var(--accent) ${(v/m*38).toFixed(0)}%,transparent)">${nf(v)}</td>`}).join('')+
+        `<td><b>${nf(x.t)}</b></td><td>${L.cut?`<span class="pill wn">${esc(L.l||'')}</span>`:esc(L.l||'–')}</td></tr>`}).join('')+
     `</tbody><tfoot><tr><td class="t">합계</td>${a.dayQ.map(v=>`<td>${nf(v)}</td>`).join('')}<td>${nf(a.packs)}</td><td></td></tr></tfoot>`;
-  const notes=[];
-  V.items.forEach((n,i)=>{if(r.cut[i]&&S.items.has(i))notes.push(`<div class="w">${esc(n)}: ${esc(r.last[i])} 이후 단품 주문 없음${S.items.has(SET)&&V.setItems.includes(i)?' (이후 수량은 ALL세트분)':''}</div>`)});
-  r.notes.forEach(x=>{if(S.items.has(V.items.indexOf(x.item)))notes.push(`<div>${esc(x.item)}: ${esc(x.from)}부터 "${esc(x.opt)}" 옵션으로 ${nf(x.qty)}팩 판매</div>`)});
+  const notes=[],pre=x=>GA.multi?esc(x.label)+' · ':'';
+  GA.rs.forEach(x=>V.items.forEach((n,i)=>{if(x.cut[i]&&S.items.has(i))notes.push(`<div class="w">${pre(x)}${esc(n)}: ${esc(x.last[i])} 이후 단품 주문 없음${S.items.has(SET)&&V.setItems.includes(i)?' (이후 수량은 ALL세트분)':''}</div>`)}));
+  GA.rs.forEach(x=>x.notes.forEach(t=>{if(S.items.has(V.items.indexOf(t.item)))notes.push(`<div>${pre(x)}${esc(t.item)}: ${esc(t.from)}부터 "${esc(t.opt)}" 옵션으로 ${nf(t.qty)}팩 판매</div>`)}));
   if(S.ct!=='all')notes.push('<div>주문이 끊긴 시점은 고객 필터와 무관하게 회차 전체 기준이에요.</div>');
   $('#heatNotes').innerHTML=notes.join('');
 
@@ -679,21 +719,21 @@ function render(){
   const BA=[[0,3,'1~2'],[3,5,'3~4'],[5,7,'5~6'],[7,10,'7~9'],[10,15,'10~14'],[15,1e9,'15+']];
   const BB=[[0,5e4,'~5만'],[5e4,6e4,'5만대'],[6e4,7e4,'6만대'],[7e4,8e4,'7만대'],[8e4,1e5,'8~9만'],[1e5,1.5e5,'10만대'],[1.5e5,1e12,'15만~']];
   const BC=[[1,2,'1종'],[2,3,'2종'],[3,4,'3종'],[4,5,'4종'],[5,6,'5종'],[6,99,'6종+']];
-  const H=(el,lgEl,key,B,unit,lo)=>{const s=[];if(hasC)s.push({name:cl,vals:hist(b[key],B),cmp:1});s.push({name:r.label,vals:hist(a[key],B)});
+  const H=(el,lgEl,key,B,unit,lo)=>{const s=[];if(hasC)s.push({name:GB.short,vals:hist(b[key],B),cmp:1});s.push({name:GA.short,vals:hist(a[key],B)});
     cols(el,B.map(x=>({l:x[2],tip:x[2]+unit})),s,{fmt:v=>pc(v,0),cls:'sm dense',lo});
-    const L=[['--accent',lo?`${r.label} ${FS} 이상`:r.label]];if(lo)L.push(['--set',`${r.label} ${FS} 미만`]);if(hasC)L.push(['--y-mid',cl]);lg(lgEl,L)};
+    const L=[['--accent',lo?`${GA.short} ${FS} 이상`:GA.short]];if(lo)L.push(['--set',`${GA.short} ${FS} 미만`]);if(hasC)L.push(['--y-mid',GB.short]);lg(lgEl,L)};
   H($('#hA'),$('#lgA'),'oPacks',BA,'팩');if(pr0)H($('#hB'),$('#lgB'),'oPay',BB,'',V.freeShip?i=>BB[i][1]<=V.freeShip:null);else{$('#hB').innerHTML='<div class="empty">가격표에 가격이 들어가면 표시돼요.</div>';$('#lgB').innerHTML=''}H($('#hC'),$('#lgC'),'oKinds',BC,'');
 
   // 고객
-  const gN=agg(S.r,'new'),gR=agg(S.r,'rep');
+  const gN=agg(GA,'new'),gR=agg(GA,'rep');
   let ch='';
-  if(r.first){ch=`<div class="empty">첫 집계 회차(${esc(r.label)})라 이전 구매 이력이 없어요. 다음 회차부터 신규·재구매가 나뉘어요.</div>`}
+  if(GA.first){ch=`<div class="empty">첫 집계 회차(${esc(RV[0].label)})가 포함돼 있어 이전 구매 이력이 없어요. 다음 회차부터 신규·재구매가 나뉘어요.</div>`}
   else{
-    const pi=prevOf(S.r),pv=pi>=0?R[pi]:RV[RV.indexOf(r)-1];let back=0;pv.custs.forEach(c=>{if(r.custs.has(c))back++});
+    const pi=prevRV(GA.lo),pv=RV[pi>=0?pi:GA.lo-1];let back=0;pv.custs.forEach(c=>{if(GA.custs.has(c))back++});
     const row=(t,g)=>`<tr><td class="t">${t}</td><td>${nf(g.custs.size)}</td><td>${nf(g.orders)}</td><td>${isFinite(g.avgPacks)?g.avgPacks.toFixed(1):'–'}</td><td>${isFinite(g.aov)&&pr0?nf(g.aov):'–'}</td><td>${pr0?won(S.b==='sup'?g.sup:g.pay):'–'}</td></tr>`;
-    ch=`<div class="say">${esc(pv.label)} 고객 <b>${nf(pv.custs.size)}명</b> 중 <b>${nf(back)}명</b>이 ${esc(r.label)} 회차에 다시 구매했어요. 복귀율 <b>${pc(back/pv.custs.size)}</b></div>
+    ch=`<div class="say">${esc(pv.label)} 고객 <b>${nf(pv.custs.size)}명</b> 중 <b>${nf(back)}명</b>이 ${esc(GA.label)}${GA.multi?'(묶음)':' 회차'}에 다시 구매했어요. 복귀율 <b>${pc(back/pv.custs.size)}</b></div>
     <div class="tbl" style="margin-top:8px"><table><thead><tr><th class="t" style="min-width:64px">구분</th><th>고객</th><th>주문</th><th>주문당 팩</th><th>객단가</th><th>${S.b==='sup'?'올계 매출':'결제액'}</th></tr></thead><tbody>${row('신규',gN)}${row('재구매',gR)}</tbody></table></div>
-    <div class="note" style="margin-top:8px">재구매는 이전 집계 회차에 구매 이력이 있는 고객이에요. 품목 필터가 걸리면 해당 품목을 산 고객만 셉니다.</div>`}
+    <div class="note" style="margin-top:8px">재구매는 이전 집계 회차에 구매 이력이 있는 고객이에요.${GA.multi?' 여러 회차를 묶으면 묶음의 첫 회차보다 앞선 회차를 기준으로 나눠요.':''} 품목 필터가 걸리면 해당 품목을 산 고객만 셉니다.</div>`}
   $('#custBox').innerHTML=ch;
 
   // 품목 상세
@@ -701,9 +741,9 @@ function render(){
   const trs=V.items.map((n,i)=>({n,i,t:a.single[i]+a.setU[i]})).filter(x=>S.items.has(x.i)&&live(x.i)).sort((x,y)=>y.t-x.t).map(x=>{const i=x.i;
     const pb=b?b.single[i]+b.setU[i]:null;
     return `<tr><td class="t" style="min-width:84px">${esc(x.n)}</td>${hasSet?`<td>${nf(a.single[i])}</td><td>${a.setU[i]?nf(a.setU[i]):'–'}</td>`:''}<td><b>${nf(x.t)}</b></td><td>${pc(x.t/tot)}</td><td>${a.orders?pc(a.itemOrd[i]/a.orders):'–'}</td>${hasC?`<td>${dPct(x.t,pb)||'–'}</td>`:''}<td>${won(a[aK][i])}</td></tr>`}).join('');
-  const setAmt=a.sets*(S.b==='sup'?r.setSup:r.setPay);
+  const setAmt=S.b==='sup'?a.setSupT:a.setPayT;
   const setTr=S.items.has(SET)?`<tr class="setrow"><td class="t">${esc(SETN)}<span>${NS}종 각 1팩 · 금액은 세트가</span></td><td>${nf(a.sets)}세트</td><td>–</td><td>–</td><td>–</td><td>${a.orders?pc(a.itemOrd[SET]/a.orders):'–'}</td>${hasC?`<td>${dPct(a.sets,b.sets)||'–'}</td>`:''}<td>${won(setAmt)}</td></tr>`:'';
-  $('#itTbl').innerHTML=`<thead><tr><th class="t">품목</th>${hasSet?'<th>단품</th><th>ALL세트분</th>':''}<th>${hasSet?'합계(팩)':'판매 팩'}</th><th>비중</th><th>주문 포함률</th>${hasC?`<th>${esc(cl)} 대비</th>`:''}<th>${aL}</th></tr></thead><tbody>${trs}${setTr}</tbody>`+
+  $('#itTbl').innerHTML=`<thead><tr><th class="t">품목</th>${hasSet?'<th>단품</th><th>ALL세트분</th>':''}<th>${hasSet?'합계(팩)':'판매 팩'}</th><th>비중</th><th>주문 포함률</th>${hasC?`<th>${esc(GB.short)} 대비</th>`:''}<th>${aL}</th></tr></thead><tbody>${trs}${setTr}</tbody>`+
     `<tfoot><tr><td class="t">합계</td>${hasSet?`<td>${nf(a.single.reduce((p,q)=>p+q,0))}</td><td>${nf(a.setU.reduce((p,q)=>p+q,0))}</td>`:''}<td>${nf(a.packs)}</td><td></td><td></td>${hasC?`<td>${dPct(a.packs,b.packs)}</td>`:''}<td>${won(S.b==='sup'?a.sup:a.pay)}</td></tr></tfoot>`;
 
   $('#foot').innerHTML=`집계 기준 · ${esc(V.name)}는 ${esc(RV[0].label)} 회차부터 집계해요. · 취소·반품(부분 반품 포함)은 모든 수치에서 빼고, 교환은 판매로 셉니다. · 금액은 수량 × 가격표로 계산해 쿠폰·배송비는 반영되지 않아요.${hasSet?` · ${esc(SETN)}는 수량을 구성 ${NS}종에 1팩씩 더하고, 금액은 세트가로 따로 잡아요.`:''} · 주문당 팩 수·결제액·품목 종류 수와 객단가는 품목 필터와 무관하게 주문 전체 기준이에요. ${hasSet?`품목 종류 수에서 ${esc(SETN)}는 1종으로 세요.`:''} · 고객은 이름·ID를 가린 고객키로만 구분해요.`;
@@ -733,25 +773,38 @@ function renderYear(){const ys=Object.keys(YR).sort().reverse(),sel=$('#fYear');
 $('#fYear').addEventListener('change',renderYear);
 
 /* ---------- 초기화 · 이벤트 ---------- */
-function fillRound(){$('#fRound').innerHTML=R.map((r,i)=>`<option value="${i}">${esc(r.label)}</option>`).join('')}
-function fillCmp(){$('#fCmp').innerHTML='<option value="-1">없음</option>'+R.map((r,i)=>i===S.r?'':`<option value="${i}">${esc(r.label)}</option>`).join('')}
-function setInf(n){INF=n;R=INF?RV.filter(r=>r.inf===INF):RV;const it=S.items;S=freshS(S);S.items=it;fillRound();fillCmp()}
+// 회차 선택 · 비교: 체크박스 목록 (최신 회차가 위). 한 회차는 선택과 비교 중 한쪽에만 들어감
+function drawPick(){const vs=vis().slice().reverse();
+  [['#mRound','sel','cmp'],['#mCmp','cmp','sel']].forEach(([id,k,o])=>{const box=$(id),set=S[k],other=S[o],G=grp(set);
+    box.querySelector('.msbtn span').textContent=G?G.short:'없음';box.querySelector('.msbtn').title=G?G.label:'비교 없음';
+    box.querySelector('.mspop').innerHTML=(k==='cmp'?`<button type="button" class="msclr" data-clr="1"${set.size?'':' disabled'}>비교 없음</button>`:'')+
+      vs.map(ri=>{const r=RV[ri],dis=other.has(ri);return `<label class="msi${dis?' dis':''}"><input type="checkbox" data-ri="${ri}"${set.has(ri)?' checked':''}${dis?' disabled':''}><span class="ml">${esc(r.label)}</span><span class="md">${mdOf(r,0)}~${mdOf(r,r.days-1)}${dis?(k==='sel'?' · 비교 중':' · 선택 중'):''}</span></label>`}).join('')+
+      (k==='sel'?'<div class="msn">여러 회차를 고르면 하나로 묶어 집계해요.</div>':'<div class="msn">여러 회차를 고르면 하나로 묶어 비교해요.</div>')})}
+function closePicks(){$$('.mspop').forEach(p=>p.hidden=true);$$('.msbtn').forEach(b=>b.setAttribute('aria-expanded','false'))}
+$$('.msel').forEach(box=>{const btn=box.querySelector('.msbtn'),pop=box.querySelector('.mspop');
+  btn.addEventListener('click',()=>{const open=pop.hidden;closePicks();if(open){pop.hidden=false;btn.setAttribute('aria-expanded','true')}});
+  pop.addEventListener('change',e=>{const t=e.target;if(t.dataset.ri==null)return;const ri=+t.dataset.ri,k=box.dataset.k,set=S[k];
+    if(t.checked)set.add(ri);else{if(k==='sel'&&set.size===1){t.checked=true;return}set.delete(ri)}
+    if(k==='sel')autoCmp();else S.auto=false;
+    render()});
+  pop.addEventListener('click',e=>{if(e.target.closest('[data-clr]')){S.cmp.clear();S.auto=false;render()}})});
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('.msel'))closePicks()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePicks()});
+function setInf(n){INF=n;R=INF?RV.filter(r=>r.inf===INF):RV;const it=S.items;S=freshS(S);S.items=it}
 function mount(vi){VI=vi;V=DATA.vendors[vi];INF='';prep();R=RV;S=freshS(S);
   $('#fIt').innerHTML=NAMES.map((n,i)=>`<button type="button" class="chip${i===SET?' set':''}" data-i="${i}">${esc(n)}</button>`).join('');
   const infs=V.infs||[];$('#fInfWrap').hidden=infs.length<1;
   $('#fInf').innerHTML='<button type="button" class="chip" data-inf="">전체</button>'+infs.map(n=>`<button type="button" class="chip" data-inf="${esc(n)}">${esc(n)}</button>`).join('');
   $('#vendSeg').hidden=DATA.vendors.length<2;
   $('#vendSeg').innerHTML=DATA.vendors.map((v,i)=>`<button type="button" data-v="${i}" aria-pressed="${i===vi}">${esc(v.name)}</button>`).join('');
-  fillRound();fillCmp()}
-$('#fRound').addEventListener('change',e=>{S.r=+e.target.value;S.c=prevOf(S.r);fillCmp();render()});
-$('#fCmp').addEventListener('change',e=>{S.c=+e.target.value;render()});
+  closePicks()}
 document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||t.disabled)return;const d=t.dataset;
   if(d.view){if(typeof setView==='function')setView(d.view);return}
   if('v' in d){mount(+d.v);render();return}
   if('inf' in d){setInf(d.inf);render();return}
   if(d.m){S.m=d.m}else if(d.b){S.b=d.b}else if(d.c){S.ct=d.c}else if(d.d){S.d=d.d}
   else if(d.i!=null&&t.classList.contains('chip')){const i=+d.i;S.items.has(i)?S.items.delete(i):S.items.add(i)}
-  else if(t.id==='fReset'){INF='';R=RV;S=freshS(null);fillRound();fillCmp()}
+  else if(t.id==='fReset'){INF='';R=RV;S=freshS(null)}
   else return;
   render()});
 $('#fItAll').addEventListener('change',e=>{S.items=e.target.checked?new Set(NAMES.map((_,i)=>i)):new Set();render()});
